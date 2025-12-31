@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+tensorflow
+librosa
+numpy
+python-multipart
+soundfile
+scikit-learn
+mysql-connector-python

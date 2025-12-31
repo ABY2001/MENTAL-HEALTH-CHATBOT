@@ -15,10 +15,10 @@ export const routes: Routes = [
         path: '',
         component: MainLayout,
         children:[
-            {
-                path: '',
-                loadChildren: ()=> import('./features/audio-record/audio-record').then(m =>m.AudioRecord)
-            }
+             {
+                path: 'audio-record',
+                loadComponent: ()=> import('./features/audio-record/audio-record').then(c =>c.AudioRecord)
+            },
         ]
     }  
 ];
