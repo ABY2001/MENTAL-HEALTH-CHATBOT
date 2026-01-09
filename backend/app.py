@@ -11,11 +11,19 @@ from database import Base, engine, SessionLocal
 from models import User
 from auth import verify_password
 from audio_utils import extract_mel_spectrogram
+from safety_engine import SafetyTriageEngine, RiskLevel
+from response_generator import ResponseGenerator
 
 # Create tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Mental Health Support API")
+
+# Initialize Safety Engine and Response Generator
+safety_engine = SafetyTriageEngine()
+response_generator = ResponseGenerator()
+print("✓ Safety & Triage Engine initialized")
+print("✓ Response Generator initialized")
 
 # Enable CORS for Angular
 app.add_middleware(
@@ -26,17 +34,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load models
-MODEL_PATH = "model/best_model.keras"
-ENCODER_PATH = "model/label_encoder.pkl"
+# Load models - Updated to correct path
+MODEL_PATH = "models/best_model.keras"
+ENCODER_PATH = "models/label_encoder.pkl"
 
 try:
+    if not os.path.exists(MODEL_PATH):
+        raise FileNotFoundError(f"Model not found at: {os.path.abspath(MODEL_PATH)}")
+    if not os.path.exists(ENCODER_PATH):
+        raise FileNotFoundError(f"Encoder not found at: {os.path.abspath(ENCODER_PATH)}")
+    
     model = load_model(MODEL_PATH)
     with open(ENCODER_PATH, "rb") as f:
         label_encoder = pickle.load(f)
     print("✓ Emotion detection model loaded successfully")
+    print(f"  Model input shape: {model.input_shape}")
+    print(f"  Available emotions: {list(label_encoder.classes_)}")
 except Exception as e:
     print(f"✗ Error loading model: {e}")
+    import traceback
+    traceback.print_exc()
     model = None
     label_encoder = None
 
@@ -48,10 +65,17 @@ class LoginRequest(BaseModel):
 class TextRequest(BaseModel):
     text: str
 
-class EmotionResponse(BaseModel):
+class ChatResponse(BaseModel):
     emotion: str
     confidence: float
-    all_emotions: dict
+    bot_response: str
+    safety: dict
+
+class ChatMessage(BaseModel):
+    user_id: int
+    message: str
+    emotion: str
+    is_user: bool
 
 # ==================== DATABASE DEPENDENCY ====================
 def get_db():
@@ -172,10 +196,23 @@ async def predict_emotion(file: UploadFile = File(...)):
             for i in range(len(predictions))
         }
         
+        # Safety evaluation
+        safety_assessment = safety_engine.evaluate("voice message", emotion, confidence)
+        
+        # Generate response
+        bot_response = response_generator.generate_response(emotion, safety_assessment, "voice message")
+        
         return {
             "emotion": emotion,
             "confidence": round(confidence, 3),
-            "all_emotions": all_emotions
+            "all_emotions": all_emotions,
+            "bot_response": bot_response,
+            "safety": {
+                "risk_level": safety_assessment.risk_level.value,
+                "crisis_detected": safety_assessment.crisis_detected,
+                "intensity": safety_assessment.intensity.value,
+                "warning": safety_assessment.warning_message
+            }
         }
         
     except HTTPException:
@@ -193,18 +230,48 @@ async def predict_emotion(file: UploadFile = File(...)):
             except:
                 pass
 
-@app.post("/predict-emotion-text", response_model=EmotionResponse)
+@app.post("/predict-emotion-text")
 async def predict_emotion_text(request: TextRequest):
     """
-    Predict emotion from text using keyword analysis
-    TODO: Replace with proper NLP model for better accuracy
+    Predict emotion from text with safety evaluation and generate response
     """
-    text = request.text.lower().strip()
+    text = request.text.strip()
     
     if not text:
         raise HTTPException(status_code=400, detail="Text cannot be empty")
     
-    # Enhanced keyword-based emotion detection
+    # Step 1: Detect emotion
+    emotion, confidence, all_emotions = detect_emotion_from_text(text)
+    
+    # Step 2: Safety evaluation
+    safety_assessment = safety_engine.evaluate(text, emotion, confidence)
+    
+    # Step 3: Generate appropriate response
+    bot_response = response_generator.generate_response(emotion, safety_assessment, text)
+    
+    # Step 4: Prepare full response
+    response_data = {
+        "emotion": emotion,
+        "confidence": round(confidence, 3),
+        "all_emotions": all_emotions,
+        "bot_response": bot_response,
+        "safety": {
+            "risk_level": safety_assessment.risk_level.value,
+            "crisis_detected": safety_assessment.crisis_detected,
+            "intensity": safety_assessment.intensity.value,
+            "warning": safety_assessment.warning_message
+        }
+    }
+    
+    return response_data
+
+def detect_emotion_from_text(text: str):
+    """
+    Helper function to detect emotion from text
+    Returns: (emotion, confidence, all_emotions)
+    """
+    text_lower = text.lower()
+    
     emotion_keywords = {
         'happy': {
             'keywords': ['happy', 'joy', 'joyful', 'great', 'wonderful', 'excited', 'good', 
@@ -249,54 +316,38 @@ async def predict_emotion_text(request: TextRequest):
         }
     }
     
-    # Calculate scores for each emotion
     emotion_scores = {}
-    for emotion, data in emotion_keywords.items():
+    for emotion_name, data in emotion_keywords.items():
         score = 0
         keywords = data['keywords']
         weight = data['weight']
         
         for keyword in keywords:
-            if keyword in text:
+            if keyword in text_lower:
                 score += weight
         
-        emotion_scores[emotion] = score
+        emotion_scores[emotion_name] = score
     
-    # Determine dominant emotion
     detected_emotion = max(emotion_scores, key=emotion_scores.get)
     max_score = emotion_scores[detected_emotion]
     
-    # If no keywords matched, default to neutral
     if max_score == 0:
         detected_emotion = 'neutral'
         confidence = 0.5
     else:
-        # Calculate confidence (normalized between 0.6 and 0.95)
         confidence = min(0.6 + (max_score * 0.08), 0.95)
     
-    # Normalize scores for all_emotions
     total_score = sum(emotion_scores.values()) or 1
     all_emotions = {
-        emotion: round(score / total_score, 3) if total_score > 0 else 0.1
-        for emotion, score in emotion_scores.items()
+        emotion_name: round(score / total_score, 3) if total_score > 0 else 0.1
+        for emotion_name, score in emotion_scores.items()
     }
     
-    # Ensure detected emotion has highest probability
     all_emotions[detected_emotion] = max(all_emotions[detected_emotion], confidence)
     
-    return {
-        "emotion": detected_emotion,
-        "confidence": round(confidence, 3),
-        "all_emotions": all_emotions
-    }
+    return detected_emotion, confidence, all_emotions
 
 # ==================== CHAT HISTORY (OPTIONAL) ====================
-class ChatMessage(BaseModel):
-    user_id: int
-    message: str
-    emotion: str
-    is_user: bool
-
 @app.post("/save-message")
 def save_message(message: ChatMessage, db: Session = Depends(get_db)):
     """Save chat message to database (optional feature)"""
@@ -368,15 +419,18 @@ def get_emotions():
 # ==================== RUN SERVER ====================
 if __name__ == "__main__":
     import uvicorn
+    import logging
+    
+    # Set logging to DEBUG to see all errors
+    logging.basicConfig(level=logging.DEBUG)
+    
     print("\n" + "="*70)
     print("🚀 Mental Health Support API Starting...")
     print("="*70)
     print(f"📍 API: http://127.0.0.1:8000")
     print(f"📚 Docs: http://127.0.0.1:8000/docs")
     print(f"🎭 Emotions: {list(label_encoder.classes_) if label_encoder else 'Model not loaded'}")
+    print(f"📦 Model input shape: {model.input_shape if model else 'No model'}")
     print("="*70 + "\n")
     
-    uvicorn.run(app, host="127.0.0.1", port=8000, reload=True)
-
-
-    
+    uvicorn.run(app, host="127.0.0.1", port=8000, reload=False, log_level="debug")

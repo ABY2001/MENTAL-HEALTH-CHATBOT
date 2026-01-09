@@ -37,6 +37,39 @@
       </div>
     </div>
 
+    <!-- Audio Preview Modal -->
+    <div class="audio-preview-modal" *ngIf="showAudioPreview">
+      <div class="preview-content">
+        <div class="preview-header">
+          <h3>🎤 Review Your Recording</h3>
+          <p>Listen before sending</p>
+        </div>
+
+        <div class="audio-player-container">
+          <audio 
+            #audioPlayer
+            [src]="audioURL" 
+            controls
+            class="audio-player">
+          </audio>
+          <div class="recording-duration">
+            Duration: {{ recordingTime }}
+          </div>
+        </div>
+
+        <div class="preview-actions">
+          <button class="btn-cancel" (click)="cancelRecording()">
+            <span class="icon">🗑️</span>
+            Delete & Re-record
+          </button>
+          <button class="btn-send" (click)="confirmSendAudio()">
+            <span class="icon">✓</span>
+            Send Recording
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="input-area">
       <!-- Recording Status - Shows ONLY when recording -->
       <div class="recording-status" *ngIf="isRecording">
@@ -60,13 +93,14 @@
           class="mic-btn" 
           [class.recording]="isRecording"
           (click)="toggleRecording()"
+          [disabled]="showAudioPreview"
           [title]="isRecording ? 'Stop Recording' : 'Record voice message'">
           {{ isRecording ? '⏹' : '🎙️' }}
         </button>
         <button 
           class="send-btn" 
           (click)="sendMessage()"
-          [disabled]="!messageInput.trim() || isRecording"
+          [disabled]="!messageInput.trim() || isRecording || showAudioPreview"
           title="Send message">
           ➤
         </button>
