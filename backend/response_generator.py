@@ -1,18 +1,27 @@
 """
 Response Generator
 Generates empathetic, supportive responses based on emotion and safety assessment
+WITH RAG-enhanced context
 """
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 from safety_engine import SafetyAssessment, RiskLevel, EmotionIntensity
 import random
 
 class ResponseGenerator:
     """
     Generates appropriate responses based on emotion, intensity, and safety level
+    Enhanced with RAG system for knowledge-grounded responses
     """
     
-    def __init__(self):
+    def __init__(self, rag_system=None):
+        """
+        Initialize with optional RAG system
+        
+        Args:
+            rag_system: RAGSystem instance for knowledge retrieval
+        """
+        self.rag_system = rag_system
         # Response templates organized by emotion and intensity
         self.responses = {
             'happy': {
@@ -156,14 +165,7 @@ class ResponseGenerator:
     ) -> str:
         """
         Generate an appropriate response based on emotion and safety assessment
-        
-        Args:
-            emotion: Detected emotion
-            safety_assessment: Safety evaluation results
-            user_text: Original user text (for context)
-        
-        Returns:
-            Generated response string
+        Enhanced with RAG context when available
         """
         # Handle crisis situations first
         if safety_assessment.risk_level == RiskLevel.CRITICAL:
@@ -192,19 +194,26 @@ class ResponseGenerator:
             
             return response
         
-        # Normal supportive responses
+        # Get base empathetic response
         intensity_key = safety_assessment.intensity.value
         
-        # Get response for this emotion and intensity
         if emotion in self.responses:
             if intensity_key in self.responses[emotion]:
                 response = random.choice(self.responses[emotion][intensity_key])
             else:
-                # Fallback to mild if intensity not found
                 response = random.choice(self.responses[emotion].get('mild', ["I'm here to listen."]))
         else:
-            # Fallback for unknown emotions
             response = "I'm here to support you. Tell me more about what you're experiencing."
+        
+        # Enhance with RAG context if available
+        if self.rag_system and user_text:
+            try:
+                context = self.rag_system.get_context_for_emotion(emotion, user_text)
+                if context:
+                    # Add knowledge-based guidance
+                    response += f"\n\n💡 Here's something that might help:\n{context[:300]}..."
+            except Exception as e:
+                print(f"RAG retrieval error: {e}")
         
         # Add resources for medium risk
         if safety_assessment.risk_level == RiskLevel.MEDIUM and safety_assessment.crisis_resources:
