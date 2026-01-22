@@ -4,15 +4,14 @@
   
 }
 
+
+
+
 body {
   margin: 0;
   min-height: 100vh; 
   background: linear-gradient(135deg, #ffe8cc, #fff3e0);
-  
-  /* This Flexbox setup centers the direct child (.sub-container) */
-   display: flex;
-  justify-content: center; /* Centers Horizontally */
-  align-items: center;     /* Centers Vertically */
+
 }
 
 .sub-container {
@@ -27,7 +26,6 @@ body {
 
 /* Puppy face effect */
 .sub-container::before {
-  content: "🐶";
   font-size: 48px;
   position: absolute;
   top: -30px;
@@ -68,7 +66,7 @@ button {
   padding: 14px;
   border-radius: 12px;
   border: none;
-  background: #ff9800;
+  background: linear-gradient(175deg, #020024, #090979);
   color: white;
   font-size: 16px;
   cursor: pointer;
@@ -76,6 +74,6 @@ button {
 }
 
 button:hover {
-  background: #fb8c00;
+  background: #1a237e; 
   transform: scale(1.03);
 }

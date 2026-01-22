@@ -30,7 +30,6 @@ getLoginCredentials(){
       password: this.password
     }).subscribe({
       next: (res: any) => {
-        alert(res.message || 'Login Successful');
         this.router.navigate(['/audio-record']);
       },
       error: (err) => {

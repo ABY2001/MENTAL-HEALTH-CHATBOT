@@ -15,7 +15,7 @@ interface Message {
 @Component({
   selector: 'app-audio-record',
   standalone: true,
-  imports: [CommonModule, FormsModule, Sidebar],
+  imports: [CommonModule, FormsModule],
   templateUrl: './audio-record.html',
   styleUrl: './audio-record.css'
 })
