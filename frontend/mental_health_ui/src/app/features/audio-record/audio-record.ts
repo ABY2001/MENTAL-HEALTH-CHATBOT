@@ -348,7 +348,7 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
       this.showAudioPreview = false;
       this.sendAudio(this.currentAudioBlob);
       
-      // Clean up
+   
       if (this.audioURL) {
         URL.revokeObjectURL(this.audioURL);
         this.audioURL = null;

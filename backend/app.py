@@ -34,10 +34,28 @@ except ImportError as e:
     TRANSCRIPTION_AVAILABLE = False
     AudioTranscriptionService = None
 
+# Try to import enhanced text emotion detector
+try:
+    from enhanced_text_emotion import EnhancedTextEmotionDetector
+    TEXT_DETECTOR_AVAILABLE = True
+except ImportError:
+    print("⚠️ Enhanced text detector not available, using basic keyword matching")
+    TEXT_DETECTOR_AVAILABLE = False
+    EnhancedTextEmotionDetector = None
+
 # Create tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Mental Health Support API")
+
+# Initialize Enhanced Text Emotion Detector
+text_emotion_detector = None
+if TEXT_DETECTOR_AVAILABLE:
+    try:
+        text_emotion_detector = EnhancedTextEmotionDetector("intents.json")
+        print("✓ Enhanced Text Emotion Detector initialized")
+    except Exception as e:
+        print(f"⚠️ Could not initialize enhanced detector: {e}")
 
 # Initialize RAG System (optional)
 rag_system = None
@@ -405,8 +423,14 @@ async def predict_emotion_text(request: TextRequest):
 def detect_emotion_from_text(text: str):
     """
     Helper function to detect emotion from text
-    Returns: (emotion, confidence, all_emotions)
+    Uses enhanced detector if available, falls back to basic
     """
+    # Try enhanced detector first
+    if text_emotion_detector:
+        emotion, confidence, all_emotions = text_emotion_detector.detect_emotion(text)
+        return emotion, confidence, all_emotions
+    
+    # Fallback to basic keyword matching
     text_lower = text.lower()
     
     emotion_keywords = {
