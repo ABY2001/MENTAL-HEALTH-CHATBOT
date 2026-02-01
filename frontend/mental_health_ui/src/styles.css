@@ -1,15 +1,17 @@
-/* You can add global styles to this file, and also import other style files */
-.common-color {
-    background: linear-gradient(175deg, #020024, #090979);
-}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 
 html, body {
   width: 100%;
   height: 100%;
   margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 
+               'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 
+               'Helvetica Neue', sans-serif;
 }
 
 app-root {
   display: block;
+  width: 100%;
   height: 100%;
 }

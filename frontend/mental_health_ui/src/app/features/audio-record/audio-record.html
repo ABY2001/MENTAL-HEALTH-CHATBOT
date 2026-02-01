@@ -1,10 +1,10 @@
 <!-- <app-sidebar></app-sidebar> -->
 
-<div class="chat-page; common-color">
+<div class="chat-page common-color">
   <div class="chat-container">
     <div class="chat-header">
-      <h2>💙 Mental Health Support</h2>
-      <p>I'm here to listen and support you</p>
+      <h2 class="fs-1 fw-bold"> Mental Health Support</h2>
+      <p class="fs-2 fw-normal">I'm here to listen and support you</p>
       <div class="emotion-status">
         {{ emotionStatus }}
       </div>
@@ -12,15 +12,16 @@
 
     <div class="messages-container" #messagesContainer>
       <div 
+
         *ngFor="let message of messages" 
         class="message"
         [class.user]="message.isUser"
         [class.bot]="!message.isUser">
         <div class="message-bubble">
-          <div class="message-text">{{ message.text }}</div>
+          <div class="message-text fw-bolder">{{ message.text }}</div>
           <div 
             *ngIf="message.emotion && message.isUser" 
-            class="emotion-badge"
+            class="emotion-badge fw-normal"
             [ngClass]="getEmotionClass(message.emotion)">
             Detected: {{ message.emotion }}
           </div>

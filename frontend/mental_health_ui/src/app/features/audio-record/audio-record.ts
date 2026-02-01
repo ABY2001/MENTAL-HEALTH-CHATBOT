@@ -183,7 +183,9 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
   }
 
   async toggleRecording() {
+
     if (this.isRecording) {
+      console.log('isrecording is true');
       this.stopRecording();
     } else {
       await this.startRecording();
@@ -247,6 +249,7 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
         clearInterval(this.recordingInterval);
       }
       console.log('Recording stopped successfully');
+      this.showAudioPreview = true;
     }
   }
 
@@ -279,7 +282,7 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
           const transcription = res.transcription || '';
           const botResponse = res.bot_response;
           
-          // Update last user message with transcription and emotion
+ 
           const lastMessage = this.messages[this.messages.length - 1];
           if (lastMessage.isUser) {
             // Update message text with transcription if available
@@ -355,5 +358,6 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
       }
       this.currentAudioBlob = null;
     }
+
   }
 }

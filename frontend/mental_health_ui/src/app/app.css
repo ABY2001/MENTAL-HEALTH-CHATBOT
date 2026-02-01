@@ -6,21 +6,9 @@
   padding: 0;
 }
 
-/* .app-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  background: linear-gradient(175deg, #020024, #090979);
-} */
 
 .app-container {
-  background: radial-gradient(circle at top, #020024, #090979);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
   width: 100%;
   height: 100%;
-
 }
+

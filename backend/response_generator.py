@@ -1,7 +1,7 @@
 """
 Response Generator
 Generates empathetic, supportive responses based on emotion and safety assessment
-WITH RAG-enhanced context
+WITH RAG-enhanced context and Ollama LLM integration
 """
 
 from typing import Dict, List, Optional
@@ -11,17 +11,19 @@ import random
 class ResponseGenerator:
     """
     Generates appropriate responses based on emotion, intensity, and safety level
-    Enhanced with RAG system for knowledge-grounded responses
+    Enhanced with RAG system and Ollama LLM for natural responses
     """
     
-    def __init__(self, rag_system=None):
+    def __init__(self, rag_system=None, ollama_llm=None):
         """
-        Initialize with optional RAG system
+        Initialize with optional RAG system and Ollama LLM
         
         Args:
             rag_system: RAGSystem instance for knowledge retrieval
+            ollama_llm: OllamaLLM instance for response generation
         """
         self.rag_system = rag_system
+        self.ollama_llm = ollama_llm
         # Response templates organized by emotion and intensity
         self.responses = {
             'happy': {
@@ -165,9 +167,9 @@ class ResponseGenerator:
     ) -> str:
         """
         Generate an appropriate response based on emotion and safety assessment
-        Enhanced with RAG context when available
+        Uses Ollama LLM if available, falls back to templates
         """
-        # Handle crisis situations first
+        # Handle crisis situations first (override LLM for safety)
         if safety_assessment.risk_level == RiskLevel.CRITICAL:
             crisis_msg = random.choice(self.crisis_responses[RiskLevel.CRITICAL])
             if safety_assessment.crisis_resources:
@@ -181,11 +183,6 @@ class ResponseGenerator:
             crisis_msg = random.choice(self.crisis_responses[RiskLevel.HIGH])
             response = crisis_msg
             
-            # Add empathetic follow-up
-            if emotion in self.responses and safety_assessment.intensity.value in self.responses[emotion]:
-                empathetic = random.choice(self.responses[emotion][safety_assessment.intensity.value])
-                response = empathetic + "\n\n" + crisis_msg
-            
             if safety_assessment.crisis_resources:
                 resources = "\n\n📞 Resources:\n"
                 for resource in safety_assessment.crisis_resources[:2]:
@@ -194,7 +191,34 @@ class ResponseGenerator:
             
             return response
         
-        # Get base empathetic response
+        # Try Ollama LLM first (for natural responses)
+        if self.ollama_llm and self.ollama_llm.available:
+            try:
+                # Get RAG context if available
+                context = ""
+                if self.rag_system and user_text:
+                    context = self.rag_system.get_context_for_emotion(emotion, user_text)
+                
+                # Generate response with LLM
+                response = self.ollama_llm.generate_response(
+                    user_message=user_text,
+                    emotion=emotion,
+                    intensity=safety_assessment.intensity.value,
+                    risk_level=safety_assessment.risk_level.value,
+                    context=context
+                )
+                
+                # Add resources for medium risk
+                if safety_assessment.risk_level == RiskLevel.MEDIUM and safety_assessment.crisis_resources:
+                    response += "\n\nIf you need support: " + safety_assessment.crisis_resources[0]['number']
+                
+                return response
+                
+            except Exception as e:
+                print(f"LLM generation failed: {e}, using fallback")
+                # Fall through to template responses
+        
+        # Fallback to template responses
         intensity_key = safety_assessment.intensity.value
         
         if emotion in self.responses:
@@ -210,7 +234,6 @@ class ResponseGenerator:
             try:
                 context = self.rag_system.get_context_for_emotion(emotion, user_text)
                 if context:
-                    # Add knowledge-based guidance
                     response += f"\n\n💡 Here's something that might help:\n{context[:300]}..."
             except Exception as e:
                 print(f"RAG retrieval error: {e}")
