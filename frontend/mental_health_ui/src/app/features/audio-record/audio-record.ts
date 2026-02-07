@@ -1,9 +1,9 @@
-// audio-record.component.ts
-import { Component, OnDestroy, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
+// audio-record.component.ts - FIXED TIMER DISPLAY
+
+import { Component, OnDestroy, ViewChild, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { Sidebar } from '../../shared/components/sidebar/sidebar';
 
 interface Message {
   text: string;
@@ -40,11 +40,13 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
   recordingStartTime: number = 0;
   recordingTime = '0:00';
   recordingInterval: any = null;
+  audioStream: MediaStream | null = null;
   
   // Audio preview state
   showAudioPreview = false;
   audioURL: string | null = null;
   currentAudioBlob: Blob | null = null;
+  audioPreviewDuration = '0:00'; // ⭐ Separate duration for modal
   
   // Emotion state
   currentEmotion: string | null = null;
@@ -52,7 +54,10 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
   
   private shouldScrollToBottom = false;
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private cdr: ChangeDetectorRef // ⭐ Inject ChangeDetectorRef
+  ) {}
 
   ngAfterViewChecked() {
     if (this.shouldScrollToBottom) {
@@ -62,11 +67,23 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
   }
 
   ngOnDestroy() {
+    this.cleanup();
+  }
+
+  private cleanup() {
     if (this.recordingInterval) {
       clearInterval(this.recordingInterval);
     }
     if (this.isRecording) {
       this.stopRecording();
+    }
+    if (this.audioURL) {
+      URL.revokeObjectURL(this.audioURL);
+    }
+    if (this.audioStream) {
+      this.audioStream.getTracks().forEach(track => {
+        track.stop();
+      });
     }
   }
 
@@ -107,22 +124,16 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
     const text = this.messageInput.trim();
     if (!text) return;
 
-    // Add user message
     this.addMessage(text, true);
     this.messageInput = '';
-
-    // Show typing indicator
     this.isTyping = true;
 
-    // Send to backend for emotion detection
     this.http.post<any>('http://127.0.0.1:8000/predict-emotion-text', { text })
       .subscribe({
         next: (res) => {
           const emotion = res.emotion;
-          const confidence = Math.round(res.confidence * 100);
-          const botResponse = res.bot_response;  // Get bot response from backend
+          const botResponse = res.bot_response;
           
-          // Update last user message with emotion
           const lastMessage = this.messages[this.messages.length - 1];
           if (lastMessage.isUser) {
             lastMessage.emotion = emotion;
@@ -131,12 +142,10 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
           this.currentEmotion = emotion;
           this.updateEmotionStatus(emotion);
           
-          // Show bot response from backend
           setTimeout(() => {
             this.isTyping = false;
-            this.addMessage(botResponse, false);  // Use backend response
+            this.addMessage(botResponse, false);
             
-            // Show crisis warning if present
             if (res.safety?.warning) {
               setTimeout(() => {
                 this.addMessage(`⚠️ ${res.safety.warning}`, false);
@@ -167,25 +176,8 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
     this.emotionStatus = `${emotionEmojis[emotion] || '💙'} Feeling ${emotion}`;
   }
 
-  getBotResponse(emotion: string, userMessage: string): string {
-    const responses: { [key: string]: string } = {
-      happy: "That's wonderful! I'm glad you're feeling positive. What's making you happy today?",
-      calm: "It's great that you're feeling calm. Would you like to talk about what's on your mind?",
-      sad: "I hear that you're feeling down. Remember, it's okay to feel this way. Would you like to share what's troubling you?",
-      angry: "I understand you're feeling frustrated. It's completely valid. Let's work through this together. What's bothering you?",
-      fearful: "I sense you might be worried or anxious. Remember, you're not alone. Would you like to talk about what's concerning you?",
-      neutral: "I'm here to listen. Feel free to share whatever is on your mind.",
-      disgust: "I understand you're feeling uncomfortable. Would you like to talk about what's bothering you?",
-      surprised: "That sounds unexpected! Would you like to share more about what happened?"
-    };
-    
-    return responses[emotion] || "Thank you for sharing. How can I support you today?";
-  }
-
   async toggleRecording() {
-
     if (this.isRecording) {
-      console.log('isrecording is true');
       this.stopRecording();
     } else {
       await this.startRecording();
@@ -194,48 +186,55 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
 
   async startRecording() {
     try {
-      this.audioChunks = [];
+      this.clearPreviousRecording();
       
+      this.audioChunks = [];
       console.log('Requesting microphone access...');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      this.audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       console.log('Microphone access granted');
       
-      this.mediaRecorder = new MediaRecorder(stream);
-      console.log('MediaRecorder created');
+      this.mediaRecorder = new MediaRecorder(this.audioStream);
 
       this.mediaRecorder.ondataavailable = event => {
-        console.log('Audio chunk received:', event.data.size, 'bytes');
         this.audioChunks.push(event.data);
       };
 
       this.mediaRecorder.onstop = () => {
-        console.log('Recording stopped, total chunks:', this.audioChunks.length);
         const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-        console.log('Audio blob created:', audioBlob.size, 'bytes');
         
-        // Store blob and create URL for preview
         this.currentAudioBlob = audioBlob;
         this.audioURL = URL.createObjectURL(audioBlob);
-        this.showAudioPreview = true;
         
-        stream.getTracks().forEach(track => {
-          track.stop();
-          console.log('Track stopped');
-        });
+        // ⭐ Set modal duration to final recording time
+        this.audioPreviewDuration = this.recordingTime;
+        
+        this.showAudioPreview = true;
+        this.cdr.markForCheck(); // ⭐ Force change detection
+        
+        if (this.audioStream) {
+          this.audioStream.getTracks().forEach(track => {
+            track.stop();
+          });
+        }
       };
 
       this.mediaRecorder.start();
       this.isRecording = true;
-      console.log('Recording started');
-      
       this.recordingStartTime = Date.now();
+      this.recordingTime = '0:00';
+      this.cdr.markForCheck(); // ⭐ Force change detection
+      
+      // ⭐ Update timer every 100ms with change detection
       this.recordingInterval = setInterval(() => {
         this.updateRecordingTime();
+        this.cdr.markForCheck(); // ⭐ Trigger UI update
       }, 100);
 
     } catch (error) {
       console.error('Microphone access error:', error);
       alert('Please allow microphone access to use voice messages.');
+      this.isRecording = false;
     }
   }
 
@@ -247,9 +246,10 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
       
       if (this.recordingInterval) {
         clearInterval(this.recordingInterval);
+        this.recordingInterval = null;
       }
-      console.log('Recording stopped successfully');
-      this.showAudioPreview = true;
+      
+      this.cdr.markForCheck(); // ⭐ Force change detection
     }
   }
 
@@ -261,31 +261,36 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
     this.recordingTime = `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   }
 
+  private clearPreviousRecording() {
+    if (this.audioURL) {
+      URL.revokeObjectURL(this.audioURL);
+      this.audioURL = null;
+    }
+    this.currentAudioBlob = null;
+    this.showAudioPreview = false;
+    this.recordingTime = '0:00';
+    this.audioPreviewDuration = '0:00';
+    console.log('Previous recording cleared');
+  }
+
   sendAudio(audioBlob: Blob) {
-    // Add voice message indicator
     this.addMessage('🎤 Voice message', true);
-    
-    console.log('Preparing to send audio:', audioBlob.size, 'bytes, type:', audioBlob.type);
     
     const formData = new FormData();
     formData.append('file', audioBlob, 'recording.webm');
 
     this.isTyping = true;
 
-    console.log('Sending audio to backend...');
     this.http.post<any>('http://127.0.0.1:8000/predict-emotion', formData)
       .subscribe({
         next: (res) => {
           console.log('Response received:', res);
           const emotion = res.emotion;
-          const confidence = Math.round(res.confidence * 100);
           const transcription = res.transcription || '';
           const botResponse = res.bot_response;
           
- 
           const lastMessage = this.messages[this.messages.length - 1];
           if (lastMessage.isUser) {
-            // Update message text with transcription if available
             if (transcription) {
               lastMessage.text = `🎤 "${transcription}"`;
             }
@@ -295,19 +300,16 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
           this.currentEmotion = emotion;
           this.updateEmotionStatus(emotion);
           
-          // Show bot response
           setTimeout(() => {
             this.isTyping = false;
             this.addMessage(botResponse, false);
             
-            // Show audio quality warning if present
             if (res.audio_quality && !res.audio_quality.clear) {
               setTimeout(() => {
                 this.addMessage(`⚠️ ${res.audio_quality.issue}`, false);
               }, 500);
             }
             
-            // Show crisis warning if present
             if (res.safety?.warning) {
               setTimeout(() => {
                 this.addMessage(`⚠️ ${res.safety.warning}`, false);
@@ -317,7 +319,6 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
         },
         error: (err) => {
           console.error('Error analyzing emotion:', err);
-          console.error('Error details:', err.error);
           this.isTyping = false;
           
           let errorMsg = 'Error analyzing your voice. Please try again.';
@@ -335,29 +336,14 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
   }
 
   cancelRecording() {
-    // Clean up audio URL
-    if (this.audioURL) {
-      URL.revokeObjectURL(this.audioURL);
-      this.audioURL = null;
-    }
-    this.currentAudioBlob = null;
-    this.showAudioPreview = false;
-    this.recordingTime = '0:00';
-    console.log('Recording cancelled');
+    this.clearPreviousRecording();
   }
 
   confirmSendAudio() {
     if (this.currentAudioBlob) {
-      this.showAudioPreview = false;
-      this.sendAudio(this.currentAudioBlob);
-      
-   
-      if (this.audioURL) {
-        URL.revokeObjectURL(this.audioURL);
-        this.audioURL = null;
-      }
-      this.currentAudioBlob = null;
+      const blobToSend = this.currentAudioBlob;
+      this.clearPreviousRecording();
+      this.sendAudio(blobToSend);
     }
-
   }
 }
