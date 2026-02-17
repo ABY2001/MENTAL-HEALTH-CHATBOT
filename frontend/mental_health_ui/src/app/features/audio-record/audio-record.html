@@ -1,18 +1,72 @@
-<!-- <app-sidebar></app-sidebar> -->
+<!-- audio-record.html - WITH CHAT HISTORY -->
 
 <div class="chat-page common-color">
   <div class="chat-container">
     <div class="chat-header">
-      <h2 class="fs-1 fw-bold"> Mental Health Support</h2>
+      <div class="header-top">
+        <h2 class="fs-1 fw-bold">Mental Health Support</h2>
+        <button class="history-btn" (click)="loadChatHistory()" title="Load previous chats">
+          📜 Chat History
+        </button>
+        <button class="new-chat-btn" (click)="newChat()" title="Start a new conversation">
+          ✨ New Chat
+        </button>
+      </div>
       <p class="fs-2 fw-normal">I'm here to listen and support you</p>
       <div class="emotion-status">
         {{ emotionStatus }}
       </div>
     </div>
 
+    <!-- Chat History Sidebar -->
+    <div class="chat-history-panel" *ngIf="showChatHistory">
+      <div class="history-header">
+        <h3>📜 Chat History</h3>
+        <button class="close-btn" (click)="closeChatHistory()">✕</button>
+      </div>
+
+      <div class="history-content">
+        <!-- Loading State -->
+        <div *ngIf="chatHistoryLoading" class="history-loading">
+          <div class="spinner"></div>
+          <p>Loading chat history...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div *ngIf="!chatHistoryLoading && chatHistory.length === 0" class="history-empty">
+          <p>No chat history yet</p>
+          <p class="empty-note">Start chatting to build your history</p>
+        </div>
+
+        <!-- Chat List -->
+        <div *ngIf="!chatHistoryLoading && chatHistory.length > 0" class="history-list">
+          <div *ngFor="let chat of chatHistory" class="chat-item" (click)="loadPreviousChat(chat)">
+            <div class="chat-item-header">
+              <span class="emotion-badge" [ngClass]="'emotion-' + chat.emotion.toLowerCase()">
+                {{ chat.emotion }}
+              </span>
+              <span class="timestamp">{{ chat.created_at | date:'short' }}</span>
+              
+            </div>
+            <p class="chat-preview">{{ chat.user_message | slice:0:60 }}...</p>
+            <button class="delete-chat-btn" (click)="deleteIndividualChat(chat.id, chat.user_message)">
+              🗑️
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Delete History Button -->
+      <div class="history-footer" *ngIf="chatHistory.length > 0">
+        <button class="delete-history-btn" (click)="deleteAllChats()">
+          🗑️ Delete All Chats
+        </button>
+      </div>
+    </div>
+
+    <!-- Messages Container -->
     <div class="messages-container" #messagesContainer>
       <div 
-
         *ngFor="let message of messages" 
         class="message"
         [class.user]="message.isUser"
@@ -71,6 +125,7 @@
       </div>
     </div>
 
+    <!-- Input Area -->
     <div class="input-area">
       <!-- Recording Status - Shows ONLY when recording -->
       <div class="recording-status" *ngIf="isRecording">

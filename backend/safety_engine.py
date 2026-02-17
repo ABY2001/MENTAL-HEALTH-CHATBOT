@@ -70,44 +70,323 @@ class SafetyTriageEngine:
         
         # Crisis hotlines and resources
         self.crisis_resources = {
-            'suicide': [
-                {
-                    'name': 'National Suicide Prevention Lifeline',
-                    'number': '988',
-                    'available': '24/7',
-                    'description': 'Free and confidential support'
-                },
-                {
-                    'name': 'Crisis Text Line',
-                    'number': 'Text HOME to 741741',
-                    'available': '24/7',
-                    'description': 'Text-based crisis support'
-                }
-            ],
-            'self_harm': [
-                {
-                    'name': 'Self-Harm Hotline',
-                    'number': '1-800-DONT-CUT (1-800-366-8288)',
-                    'available': '24/7',
-                    'description': 'Support for self-harm urges'
-                }
-            ],
-            'mental_health': [
-                {
-                    'name': 'SAMHSA National Helpline',
-                    'number': '1-800-662-4357',
-                    'available': '24/7',
-                    'description': 'Mental health and substance abuse'
-                },
-                {
-                    'name': 'NAMI Helpline',
-                    'number': '1-800-950-6264',
-                    'available': 'Mon-Fri 10am-10pm ET',
-                    'description': 'Mental health information and support'
-                }
-            ]
+    'suicide': [
+        {
+            'name': 'AASRA - Lifeline for Suicide Prevention',
+            'number': '9820466726',
+            'whatsapp': '+91 9820466726',
+            'email': 'aasra@aasra.info',
+            'website': 'www.aasra.info',
+            'available': '24/7',
+            'languages': ['Hindi', 'Marathi', 'English'],
+            'description': 'Free and confidential emotional support for suicide prevention'
+        },
+        {
+            'name': 'iCall - Mental Health Crisis Helpline',
+            'number': '9152987821',
+            'whatsapp': '+91 9152987821',
+            'email': 'info@icallhelpline.org',
+            'website': 'www.icallhelpline.org',
+            'available': '24/7',
+            'languages': ['Hindi', 'English', 'Marathi'],
+            'description': 'Free emotional support and crisis intervention'
+        },
+        {
+            'name': 'Vandrevala Foundation - Lifeline',
+            'number': '9999 77 6666',
+            'whatsapp': '+91 9999776666',
+            'email': 'help@vandrevalafoundation.com',
+            'website': 'www.vandrevalafoundation.com',
+            'available': '24/7',
+            'languages': ['Hindi', 'Marathi', 'English'],
+            'description': 'Mental health support and suicide prevention'
+        },
+        {
+            'name': 'RailTel 24x7 Helpline',
+            'number': '182',
+            'toll_free': 'Yes',
+            'available': '24/7',
+            'languages': ['Hindi', 'English', 'Regional'],
+            'description': 'Emergency support at railway stations (ACSM Suicide Prevention)'
         }
+    ],
     
+    'self_harm': [
+        {
+            'name': 'iCall - Self-Harm Support',
+            'number': '9152987821',
+            'whatsapp': '+91 9152987821',
+            'available': '24/7',
+            'languages': ['Hindi', 'English', 'Marathi'],
+            'description': 'Support for self-harm urges and impulses'
+        },
+        {
+            'name': 'Vandrevala Foundation - Behavioral Health',
+            'number': '9999 77 6666',
+            'whatsapp': '+91 9999776666',
+            'available': '24/7',
+            'languages': ['Hindi', 'Marathi', 'English'],
+            'description': 'Support for self-harm and destructive behaviors'
+        },
+        {
+            'name': 'AASRA - Emotional Support',
+            'number': '9820466726',
+            'whatsapp': '+91 9820466726',
+            'available': '24/7',
+            'languages': ['Hindi', 'Marathi', 'English'],
+            'description': 'Counseling for self-harm and emotional distress'
+        }
+    ],
+    
+    'mental_health': [
+        {
+            'name': 'AASRA - Mental Health Counseling',
+            'number': '9820466726',
+            'whatsapp': '+91 9820466726',
+            'email': 'aasra@aasra.info',
+            'available': '24/7',
+            'languages': ['Hindi', 'Marathi', 'English'],
+            'description': 'Mental health counseling, depression, anxiety support'
+        },
+        {
+            'name': 'iCall - Mental Health Support',
+            'number': '9152987821',
+            'whatsapp': '+91 9152987821',
+            'email': 'info@icallhelpline.org',
+            'available': '24/7',
+            'languages': ['Hindi', 'English', 'Marathi'],
+            'description': 'Support for depression, anxiety, stress management'
+        },
+        {
+            'name': 'NCPEDP - Mental Health Resources',
+            'number': '011-4141-7800',
+            'email': 'info@ncpedp.org',
+            'website': 'www.ncpedp.org',
+            'available': 'Mon-Fri 9am-6pm IST',
+            'languages': ['Hindi', 'English'],
+            'description': 'Mental health resources and disability support'
+        },
+        {
+            'name': 'Mental Health Foundation (India)',
+            'number': '1800-425-33-33',
+            'toll_free': 'Yes',
+            'email': 'info@mhfi.org',
+            'website': 'www.mhfi.org',
+            'available': '9am-6pm IST (Mon-Fri)',
+            'languages': ['Hindi', 'English'],
+            'description': 'Mental health information, support, and resources'
+        },
+        {
+            'name': 'Vandrevala Foundation - General Support',
+            'number': '9999 77 6666',
+            'whatsapp': '+91 9999776666',
+            'available': '24/7',
+            'languages': ['Hindi', 'Marathi', 'English'],
+            'description': 'Mental health awareness and support services'
+        }
+    ],
+    
+    'depression': [
+        {
+            'name': 'iCall - Depression Support',
+            'number': '9152987821',
+            'whatsapp': '+91 9152987821',
+            'available': '24/7',
+            'languages': ['Hindi', 'English', 'Marathi'],
+            'description': 'Support for depression, low mood, hopelessness'
+        },
+        {
+            'name': 'Vandrevala Foundation - Depression Help',
+            'number': '9999 77 6666',
+            'whatsapp': '+91 9999776666',
+            'available': '24/7',
+            'languages': ['Hindi', 'Marathi', 'English'],
+            'description': 'Depression counseling and management'
+        },
+        {
+            'name': 'AASRA - Emotional Support',
+            'number': '9820466726',
+            'whatsapp': '+91 9820466726',
+            'available': '24/7',
+            'languages': ['Hindi', 'Marathi', 'English'],
+            'description': 'Depression and emotional distress support'
+        }
+    ],
+    
+    'anxiety': [
+        {
+            'name': 'iCall - Anxiety Support',
+            'number': '9152987821',
+            'whatsapp': '+91 9152987821',
+            'available': '24/7',
+            'languages': ['Hindi', 'English', 'Marathi'],
+            'description': 'Support for anxiety, panic attacks, stress'
+        },
+        {
+            'name': 'Vandrevala Foundation - Anxiety Management',
+            'number': '9999 77 6666',
+            'whatsapp': '+91 9999776666',
+            'available': '24/7',
+            'languages': ['Hindi', 'Marathi', 'English'],
+            'description': 'Anxiety disorders and panic attack support'
+        }
+    ],
+    
+    'domestic_violence': [
+        {
+            'name': 'National Domestic Violence Hotline (India)',
+            'number': '181',
+            'toll_free': 'Yes',
+            'available': '24/7',
+            'languages': ['Hindi', 'English', 'Regional'],
+            'description': 'Support for domestic violence victims (for women)'
+        },
+        {
+            'name': 'AASRA - Domestic Violence Support',
+            'number': '9820466726',
+            'whatsapp': '+91 9820466726',
+            'available': '24/7',
+            'languages': ['Hindi', 'Marathi', 'English'],
+            'description': 'Support for domestic violence survivors'
+        },
+        {
+            'name': 'Sneha - Mumbai Based NGO',
+            'number': '9922004948',
+            'email': 'contact@snehamumbai.org',
+            'available': '24/7',
+            'languages': ['Hindi', 'Marathi', 'English'],
+            'description': 'Support for violence survivors and counseling'
+        }
+    ],
+    
+    'substance_abuse': [
+        {
+            'name': 'All India Institute of Medical Sciences (AIIMS) - De-addiction',
+            'number': '011-26589169',
+            'email': 'aiimsdrugs@gmail.com',
+            'available': 'Mon-Fri 9am-5pm IST',
+            'languages': ['Hindi', 'English'],
+            'description': 'Professional de-addiction and substance abuse treatment'
+        },
+        {
+            'name': 'Narcotics Anonymous India',
+            'number': '7738-022022',
+            'whatsapp': '+91 7738022022',
+            'email': 'naindia@outlook.com',
+            'available': '24/7',
+            'languages': ['Hindi', 'English'],
+            'description': 'Support for substance abuse recovery'
+        },
+        {
+            'name': 'iCall - Substance Abuse Support',
+            'number': '9152987821',
+            'whatsapp': '+91 9152987821',
+            'available': '24/7',
+            'languages': ['Hindi', 'English', 'Marathi'],
+            'description': 'Support for substance abuse and addiction issues'
+        }
+    ],
+    
+    'emergency': [
+        {
+            'name': 'National Emergency Helpline',
+            'number': '100',
+            'toll_free': 'Yes',
+            'available': '24/7',
+            'languages': ['Hindi', 'English', 'Regional'],
+            'description': 'Police emergency response'
+        },
+        {
+            'name': 'Ambulance/Medical Emergency',
+            'number': '102',
+            'toll_free': 'Yes',
+            'available': '24/7',
+            'languages': ['Hindi', 'English', 'Regional'],
+            'description': 'Emergency medical services'
+        },
+        {
+            'name': 'Fire Emergency',
+            'number': '101',
+            'toll_free': 'Yes',
+            'available': '24/7',
+            'languages': ['Hindi', 'English'],
+            'description': 'Fire services and rescue'
+        }
+    ],
+    
+    'professional_help': [
+        {
+            'name': 'Psychology Foundation of India',
+            'number': '011-4150-2442',
+            'email': 'info@psychologyfoundation.org',
+            'website': 'www.psychologyfoundation.org',
+            'available': 'Mon-Fri 9am-6pm IST',
+            'languages': ['Hindi', 'English'],
+            'description': 'Connect with licensed therapists and psychologists'
+        },
+        {
+            'name': 'Fortis Mental Health Hospitals',
+            'number': '1800-102-5008',
+            'toll_free': 'Yes',
+            'available': '24/7',
+            'languages': ['Hindi', 'English'],
+            'description': 'Professional psychiatric and mental health care'
+        },
+        {
+            'name': 'Max Healthcare - Mental Health',
+            'number': '8860-018880',
+            'available': '24/7',
+            'languages': ['Hindi', 'English'],
+            'description': 'Professional mental health services across India'
+        },
+        {
+            'name': 'Apollo Hospitals - Psychiatry',
+            'number': '1860-500-1066',
+            'toll_free': 'Yes',
+            'available': '24/7',
+            'languages': ['Hindi', 'English'],
+            'description': 'Mental health and psychiatric care'
+        }
+    ],
+    
+    'grief_loss': [
+        {
+            'name': 'iCall - Grief Support',
+            'number': '9152987821',
+            'whatsapp': '+91 9152987821',
+            'available': '24/7',
+            'languages': ['Hindi', 'English', 'Marathi'],
+            'description': 'Support for grief, loss, and bereavement'
+        },
+        {
+            'name': 'AASRA - Loss and Grief Counseling',
+            'number': '9820466726',
+            'whatsapp': '+91 9820466726',
+            'available': '24/7',
+            'languages': ['Hindi', 'Marathi', 'English'],
+            'description': 'Counseling for grief and loss'
+        }
+    ],
+    
+    'family_issues': [
+        {
+            'name': 'iCall - Family Counseling',
+            'number': '9152987821',
+            'whatsapp': '+91 9152987821',
+            'available': '24/7',
+            'languages': ['Hindi', 'English', 'Marathi'],
+            'description': 'Support for family conflicts, relationship issues'
+        },
+        {
+            'name': 'Vandrevala Foundation - Family Support',
+            'number': '9999 77 6666',
+            'whatsapp': '+91 9999776666',
+            'available': '24/7',
+            'languages': ['Hindi', 'Marathi', 'English'],
+            'description': 'Family counseling and relationship support'
+        }
+    ]
+}
     def evaluate(self, text: str, emotion: str, confidence: float) -> SafetyAssessment:
         """
         Main evaluation method - analyzes text and emotion for safety risks

@@ -1,4 +1,4 @@
-// audio-record.component.ts - FIXED TIMER DISPLAY
+// audio-record.component.ts - WITH CHAT HISTORY INTEGRATED
 
 import { Component, OnDestroy, ViewChild, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -12,6 +12,15 @@ interface Message {
   time: string;
 }
 
+interface ChatSession {
+  id?: number;
+  user_message: string;
+  bot_response: string;
+  emotion: string;
+  emotion_confidence: number;
+  created_at: string;
+}
+
 @Component({
   selector: 'app-audio-record',
   standalone: true,
@@ -21,6 +30,9 @@ interface Message {
 })
 export class AudioRecord implements OnDestroy, AfterViewChecked {
   @ViewChild('messagesContainer') messagesContainer!: ElementRef;
+  
+  // Current user
+  currentUserId: number | null = null;
   
   // Chat state
   messages: Message[] = [
@@ -32,6 +44,11 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
   ];
   messageInput = '';
   isTyping = false;
+  
+  // Chat history state
+  showChatHistory = false;
+  chatHistory: ChatSession[] = [];
+  chatHistoryLoading = false;
   
   // Recording state
   isRecording = false;
@@ -46,7 +63,7 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
   showAudioPreview = false;
   audioURL: string | null = null;
   currentAudioBlob: Blob | null = null;
-  audioPreviewDuration = '0:00'; // ⭐ Separate duration for modal
+  audioPreviewDuration = '0:00'; 
   
   // Emotion state
   currentEmotion: string | null = null;
@@ -56,8 +73,12 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
 
   constructor(
     private http: HttpClient,
-    private cdr: ChangeDetectorRef // ⭐ Inject ChangeDetectorRef
-  ) {}
+    private cdr: ChangeDetectorRef 
+  ) {
+    // Get user_id from localStorage (set during login)
+    const userIdStr = localStorage.getItem('user_id');
+    this.currentUserId = userIdStr ? parseInt(userIdStr, 10) : null;
+  }
 
   ngAfterViewChecked() {
     if (this.shouldScrollToBottom) {
@@ -100,6 +121,7 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
       time: this.getCurrentTime()
     });
     this.shouldScrollToBottom = true;
+    this.cdr.detectChanges();
   }
 
   scrollToBottom() {
@@ -120,6 +142,102 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
     }
   }
 
+  // ==================== CHAT HISTORY ====================
+  loadChatHistory() {
+    if (!this.currentUserId) {
+      alert('Please log in first');
+      return;
+    }
+
+    this.chatHistoryLoading = true;
+    this.showChatHistory = true;
+
+    this.http.get<any>(`http://127.0.0.1:8000/chat-history/${this.currentUserId}`)
+      .subscribe({
+        next: (res) => {
+          this.chatHistory = res.messages || [];
+          this.chatHistoryLoading = false;
+          console.log(`Loaded ${this.chatHistory.length} chat messages`);
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          console.error('Error loading chat history:', err);
+          this.chatHistoryLoading = false;
+          alert('Failed to load chat history');
+        }
+      });
+  }
+
+  loadPreviousChat(chat: ChatSession) {
+    // Close history panel
+    this.showChatHistory = false;
+
+    // Clear current messages and load the selected chat
+    this.messages = [
+      {
+        text: "Loading previous conversation...",
+        isUser: false,
+        time: this.getCurrentTime()
+      }
+    ];
+
+    // Add the selected chat to messages
+    const timestamp = new Date(chat.created_at).toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+
+    this.messages = [];
+    this.messages.push({
+      text: chat.user_message,
+      isUser: true,
+      emotion: chat.emotion,
+      time: timestamp
+    });
+
+    this.messages.push({
+      text: chat.bot_response,
+      isUser: false,
+      time: timestamp
+    });
+
+    this.shouldScrollToBottom = true;
+    this.cdr.detectChanges();
+  }
+
+  deleteAllChats() {
+    if (!this.currentUserId) return;
+
+    const confirm = window.confirm('Are you sure you want to delete all chat history? This cannot be undone.');
+    if (!confirm) return;
+
+    this.http.delete<any>(`http://127.0.0.1:8000/delete-chat-session/${this.currentUserId}`)
+      .subscribe({
+        next: (res) => {
+          console.log(`Deleted ${res.messages_deleted} messages`);
+          this.chatHistory = [];
+          this.messages = [
+            {
+              text: "Hello! I'm here to support you. How are you feeling today?",
+              isUser: false,
+              time: this.getCurrentTime()
+            }
+          ];
+          alert('Chat history deleted');
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          console.error('Error deleting chat history:', err);
+          alert('Failed to delete chat history');
+        }
+      });
+  }
+
+  closeChatHistory() {
+    this.showChatHistory = false;
+  }
+
+  // ==================== TEXT MESSAGE ====================
   sendMessage() {
     const text = this.messageInput.trim();
     if (!text) return;
@@ -145,6 +263,9 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
           setTimeout(() => {
             this.isTyping = false;
             this.addMessage(botResponse, false);
+            
+            // Save chat to history
+            this.saveChatToHistory(text, botResponse, emotion, res.confidence);
             
             if (res.safety?.warning) {
               setTimeout(() => {
@@ -176,6 +297,7 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
     this.emotionStatus = `${emotionEmojis[emotion] || '💙'} Feeling ${emotion}`;
   }
 
+  // ==================== AUDIO ====================
   async toggleRecording() {
     if (this.isRecording) {
       this.stopRecording();
@@ -206,11 +328,10 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
         this.currentAudioBlob = audioBlob;
         this.audioURL = URL.createObjectURL(audioBlob);
         
-        // ⭐ Set modal duration to final recording time
         this.audioPreviewDuration = this.recordingTime;
         
         this.showAudioPreview = true;
-        this.cdr.markForCheck(); // ⭐ Force change detection
+        this.cdr.markForCheck();
         
         if (this.audioStream) {
           this.audioStream.getTracks().forEach(track => {
@@ -223,12 +344,11 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
       this.isRecording = true;
       this.recordingStartTime = Date.now();
       this.recordingTime = '0:00';
-      this.cdr.markForCheck(); // ⭐ Force change detection
+      this.cdr.markForCheck();
       
-      // ⭐ Update timer every 100ms with change detection
       this.recordingInterval = setInterval(() => {
         this.updateRecordingTime();
-        this.cdr.markForCheck(); // ⭐ Trigger UI update
+        this.cdr.markForCheck();
       }, 100);
 
     } catch (error) {
@@ -249,7 +369,7 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
         this.recordingInterval = null;
       }
       
-      this.cdr.markForCheck(); // ⭐ Force change detection
+      this.cdr.markForCheck();
     }
   }
 
@@ -288,6 +408,7 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
           const emotion = res.emotion;
           const transcription = res.transcription || '';
           const botResponse = res.bot_response;
+          console.log('Bot response:', botResponse);
           
           const lastMessage = this.messages[this.messages.length - 1];
           if (lastMessage.isUser) {
@@ -303,6 +424,10 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
           setTimeout(() => {
             this.isTyping = false;
             this.addMessage(botResponse, false);
+            
+            // Save chat to history
+            const displayText = transcription || '🎤 Voice message';
+            this.saveChatToHistory(displayText, botResponse, emotion, res.confidence);
             
             if (res.audio_quality && !res.audio_quality.clear) {
               setTimeout(() => {
@@ -346,4 +471,81 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
       this.sendAudio(blobToSend);
     }
   }
+
+  // ==================== SAVE CHAT TO HISTORY ====================
+  private saveChatToHistory(userMessage: string, botResponse: string, emotion: string, confidence: number) {
+    if (!this.currentUserId) return;
+
+    const payload = {
+      user_id: this.currentUserId,
+      user_message: userMessage,
+      bot_response: botResponse,
+      emotion: emotion,
+      emotion_confidence: confidence
+    };
+   
+    this.http.post<any>('http://127.0.0.1:8000/save-chat', payload)
+      .subscribe({
+        next: (res) => {
+          console.log('✓ Chat saved to history');
+        },
+        error: (err) => {
+          console.error('Error saving chat to history:', err);
+        }
+      });
+  }
+  newChat() {
+  const confirm = window.confirm('Start a new conversation? Current messages will be cleared.');
+  if (!confirm) return;
+
+  // Reset messages to initial state
+  this.messages = [
+    {
+      text: "Hello! I'm here to support you. How are you feeling today? You can type or speak to me.",
+      isUser: false,
+      time: this.getCurrentTime()
+    }
+  ];
+
+  // Reset input
+  this.messageInput = '';
+  this.currentEmotion = null;
+  this.emotionStatus = '😊 Ready to chat';
+
+  // Clear any open modals
+  this.showAudioPreview = false;
+  this.showChatHistory = false;
+  this.isRecording = false;
+
+  // Stop any active recording
+  if (this.recordingInterval) {
+    clearInterval(this.recordingInterval);
+    this.recordingInterval = null;
+  }
+
+  console.log('✓ New chat started');
+  this.cdr.detectChanges();
+}
+deleteIndividualChat(chatId: number | undefined, chatPreview: string) {
+  // ✅ Check if chatId exists
+  if (!chatId) {
+    alert('Error: Chat ID not found');
+    return;
+  }
+
+  const confirm = window.confirm(`Delete this chat?\n"${chatPreview}..."`);
+  if (!confirm) return;
+
+  this.http.delete<any>(`http://127.0.0.1:8000/delete-chat-message/${chatId}`)
+    .subscribe({
+      next: (res) => {
+        this.chatHistory = this.chatHistory.filter(chat => chat.id !== chatId);
+        alert('Chat deleted successfully');
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        alert('Failed to delete chat');
+      }
+    });
+}
 }
