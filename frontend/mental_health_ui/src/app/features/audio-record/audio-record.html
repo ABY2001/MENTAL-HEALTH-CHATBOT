@@ -1,21 +1,25 @@
-<!-- audio-record.html - WITH CHAT HISTORY -->
+
 
 <div class="chat-page common-color">
   <div class="chat-container">
     <div class="chat-header">
-      <div class="header-top">
-        <h2 class="fs-1 fw-bold">Mental Health Support</h2>
-        <button class="history-btn" (click)="loadChatHistory()" title="Load previous chats">
-          📜 Chat History
-        </button>
-        <button class="new-chat-btn" (click)="newChat()" title="Start a new conversation">
-          ✨ New Chat
-        </button>
+      <div class="header-top row">
+        <div class="col-6 ">
+          <img src="/logo.png" alt="Logo" class="app-logo">
+        </div>
+        <div class="col-6 text-end ">
+           <button class="history-btn" (click)="loadChatHistory()" title="Load previous chats">
+            📜 Chat History
+          </button>
+          <button class="new-chat-btn" (click)="newChat()" title="Start a new conversation">
+            ✨ New Chat
+          </button>
+        </div>
       </div>
-      <p class="fs-2 fw-normal">I'm here to listen and support you</p>
-      <div class="emotion-status">
+      
+      <!-- <div class="emotion-status">
         {{ emotionStatus }}
-      </div>
+      </div> -->
     </div>
 
     <!-- Chat History Sidebar -->

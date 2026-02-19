@@ -870,3 +870,10 @@
     text-align: center;
   }
 }
+
+.app-logo {
+  height: 40px;        /* perfect for headers */
+  width: auto;         /* keeps aspect ratio */
+  max-width: 100%;
+  object-fit: contain;
+}
