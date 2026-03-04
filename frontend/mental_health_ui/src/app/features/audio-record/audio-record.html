@@ -4,45 +4,43 @@
   <div class="chat-container">
     <div class="chat-header">
       <div class="header-top row">
-        <div class="col-6 ">
-          <img src="/logo.png" alt="Logo" class="app-logo">
+        <div class="col-6 d-flex justify-content-between align-items-center">
+          <!-- <span><img src="/logo.png" alt="Logo" class="app-logo"></span> -->
+         <span><app-emotion-widget 
+            [currentEmotion]="currentEmotion"
+            [isVideoActive]="isVideoActive"
+            [isRecording]="isRecording">
+          </app-emotion-widget></span>
         </div>
-        <div class="col-6 text-end ">
-           <button class="history-btn" (click)="loadChatHistory()" title="Load previous chats">
-            📜 Chat History
+        <div class="col-6 text-end">
+          <button class="history-btn" (click)="loadChatHistory()" title="Load previous chats">
+             Chat History
           </button>
           <button class="new-chat-btn" (click)="newChat()" title="Start a new conversation">
-            ✨ New Chat
+            New Chat
           </button>
         </div>
       </div>
-      
-      <!-- <div class="emotion-status">
-        {{ emotionStatus }}
-      </div> -->
     </div>
 
     <!-- Chat History Sidebar -->
     <div class="chat-history-panel" *ngIf="showChatHistory">
       <div class="history-header">
-        <h3>📜 Chat History</h3>
+        <h3 class="heading-color">Chat History</h3>
         <button class="close-btn" (click)="closeChatHistory()">✕</button>
       </div>
 
       <div class="history-content">
-        <!-- Loading State -->
         <div *ngIf="chatHistoryLoading" class="history-loading">
           <div class="spinner"></div>
           <p>Loading chat history...</p>
         </div>
 
-        <!-- Empty State -->
         <div *ngIf="!chatHistoryLoading && chatHistory.length === 0" class="history-empty">
           <p>No chat history yet</p>
           <p class="empty-note">Start chatting to build your history</p>
         </div>
 
-        <!-- Chat List -->
         <div *ngIf="!chatHistoryLoading && chatHistory.length > 0" class="history-list">
           <div *ngFor="let chat of chatHistory" class="chat-item" (click)="loadPreviousChat(chat)">
             <div class="chat-item-header">
@@ -50,7 +48,6 @@
                 {{ chat.emotion }}
               </span>
               <span class="timestamp">{{ chat.created_at | date:'short' }}</span>
-              
             </div>
             <p class="chat-preview">{{ chat.user_message | slice:0:60 }}...</p>
             <button class="delete-chat-btn" (click)="deleteIndividualChat(chat.id, chat.user_message)">
@@ -59,8 +56,19 @@
           </div>
         </div>
       </div>
+      <div  *ngIf="showDeleteToast" class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="deleteToast" class="toast text-bg-danger" role="alert" data-bs-delay="3000">
+          <div class="toast-header">
+            <strong class="me-auto">Notification</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+          </div>
+          <div class="toast-body">
+            Item deleted successfully.
+          </div>
+        </div>
+      </div>
 
-      <!-- Delete History Button -->
+
       <div class="history-footer" *ngIf="chatHistory.length > 0">
         <button class="delete-history-btn" (click)="deleteAllChats()">
           🗑️ Delete All Chats
@@ -131,14 +139,14 @@
 
     <!-- Input Area -->
     <div class="input-area">
-      <!-- Recording Status - Shows ONLY when recording -->
+      <!-- Audio Recording Status -->
       <div class="recording-status" *ngIf="isRecording">
         <div class="recording-pulse"></div>
         <span class="recording-time">{{ recordingTime }}</span>
-        <span class="recording-label">Recording...</span>
+        <span class="recording-label">🎙️ Recording voice...</span>
       </div>
 
-      <!-- Text Input - Shows when NOT recording -->
+      <!-- Text Input -->
       <textarea
         *ngIf="!isRecording"
         [(ngModel)]="messageInput"
@@ -149,19 +157,31 @@
       ></textarea>
 
       <div class="action-buttons">
+        <!-- Camera Toggle Button (Toggle on/off - no UI) -->
         <button 
-          class="mic-btn" 
+          class="send-btn" 
+          [class.active]="isVideoActive"
+          (click)="toggleVideoAnalysis()"
+          [title]="isVideoActive ? 'Camera ON - Tracking emotion' : 'Camera OFF - Turn on to track emotion'">
+          {{ isVideoActive ? '📷' : '📷' }}
+        </button>
+
+        <!-- Mic Button -->
+        <button 
+          class="send-btn" 
           [class.recording]="isRecording"
           (click)="toggleRecording()"
           [disabled]="showAudioPreview"
-          [title]="isRecording ? 'Stop Recording' : 'Record voice message'">
+          title="Record voice message">
           {{ isRecording ? '⏹' : '🎙️' }}
         </button>
+
+        <!-- Send Button -->
         <button 
           class="send-btn" 
           (click)="sendMessage()"
           [disabled]="!messageInput.trim() || isRecording || showAudioPreview"
-          title="Send message">
+          title="Send message (includes face emotion if camera is ON)">
           ➤
         </button>
       </div>

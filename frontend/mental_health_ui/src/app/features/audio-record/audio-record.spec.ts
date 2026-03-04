@@ -3,6 +3,7 @@ import { Component, OnDestroy, ViewChild, ElementRef, AfterViewChecked } from '@
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { EmotionWidget } from '../emotion-widget/emotion-widget';
 
 interface Message {
   text: string;
@@ -14,7 +15,7 @@ interface Message {
 @Component({
   selector: 'app-audio-record',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, EmotionWidget],
   templateUrl: './audio-record.html',
   styleUrl: './audio-record.css'
 })
@@ -40,15 +41,12 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
   recordingTime = '0:00';
   recordingInterval: any = null;
   audioStream: MediaStream | null = null;
-  
-  // Audio preview state
   showAudioPreview = false;
   audioURL: string | null = null;
   currentAudioBlob: Blob | null = null;
-  
-  // Emotion state
   currentEmotion: string | null = null;
   emotionStatus = '😊 Ready to chat';
+  showDeleteToast:boolean=false;
   
   private shouldScrollToBottom = false;
 

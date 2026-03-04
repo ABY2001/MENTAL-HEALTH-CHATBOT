@@ -1,0 +1,22 @@
+<div class="emotion-widget">
+      <!-- Main emotion display -->
+      <div class="emotion-main">
+        <div class="emotion-emoji">{{ getEmoji(currentEmotion) }}</div>
+        <div class="emotion-info">
+          <div class="emotion-label">Current Emotion</div>
+          <div class="emotion-value">{{ currentEmotion || 'Neutral' }}</div>
+        </div>
+      </div>
+
+      <!-- Video status indicator -->
+      <div class="video-status" [ngClass]="{ active: isVideoActive }">
+        <div class="status-dot"></div>
+        <span>{{ isVideoActive ? 'Camera ON' : 'Camera OFF' }}</span>
+      </div>
+
+      <!-- Recording indicator -->
+      <div class="recording-status" [ngClass]="{ active: isRecording }">
+        <div class="recording-dot"></div>
+        <span>{{ isRecording ? 'Recording' : 'Ready' }}</span>
+      </div>
+    </div>

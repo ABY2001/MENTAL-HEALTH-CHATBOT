@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -10,6 +10,7 @@ import pickle
 from tensorflow.keras.models import load_model
 import logging
 from dotenv import load_dotenv
+import time
 
 load_dotenv()
 
@@ -24,6 +25,20 @@ try:
     TRANSCRIPTION_AVAILABLE = True
 except ImportError:
     TRANSCRIPTION_AVAILABLE = False
+
+# ==================== FACIAL EMOTION DETECTION - WITH FALLBACK ====================
+FER_AVAILABLE = False
+fer_model = None
+
+try:
+    from fer import FER
+    fer_model = FER()
+    FER_AVAILABLE = True
+    print("✓ FER Model loaded successfully")
+except Exception as e:
+    print(f"⚠️ FER NOT available: {e}")
+    print("📌 Video emotion detection will be SKIPPED (but won't crash)")
+    FER_AVAILABLE = False
 
 Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Mental Health Support API")
@@ -84,6 +99,10 @@ class SaveChatRequest(BaseModel):
     emotion: str
     emotion_confidence: float = 0.0
 
+class AudioWithVideoRequest(BaseModel):
+    """Audio + video emotion request"""
+    audio_base64: str = None
+    video_emotion: dict = None
 
 class ChatHistoryResponse(BaseModel):
     id: int
@@ -95,7 +114,6 @@ class ChatHistoryResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
 
 class ChatSessionResponse(BaseModel):
     user_id: int
@@ -122,6 +140,7 @@ def health_check():
         "groq_available": ai.available if hasattr(ai, 'available') else ai.client is not None,
         "transcription_available": TRANSCRIPTION_AVAILABLE,
         "cnn_model_loaded": model is not None,
+        "fer_model_loaded": FER_AVAILABLE,
         "emotions": list(label_encoder.classes_) if label_encoder else []
     }
 
@@ -195,25 +214,23 @@ def predict_emotion(file: UploadFile = File(...)):
         print(f"   Features: shape={features.shape}")
         
         # 2. Prepare input for CNN model
-        features_input = np.expand_dims(features, axis=0)  # Add batch dimension
+        features_input = np.expand_dims(features, axis=0)
         if len(model.input_shape) == 4:
-            features_input = np.expand_dims(features_input, axis=-1)  # Add channel dimension
+            features_input = np.expand_dims(features_input, axis=-1)
         
         print(f"   Model input shape: {features_input.shape}")
         
-        # 3. CNN Prediction (this is your trained model!)
+        # 3. CNN Prediction
         print("   CNN inference...")
         predictions = model.predict(features_input, verbose=0)[0]
         
-        # Get the predicted emotion
         idx = np.argmax(predictions)
         emotion = label_encoder.inverse_transform([idx])[0]
         confidence = float(predictions[idx])
         
         print(f"   ✅ CNN Result: {emotion} ({confidence:.2f})")
-        print(f"   Prediction scores: {dict(zip(label_encoder.classes_, predictions))}")
         
-        # 4. Optional: Get transcription for context
+        # 4. Get transcription
         transcription_text = ""
         if transcription_service:
             try:
@@ -224,12 +241,11 @@ def predict_emotion(file: UploadFile = File(...)):
             except Exception as e:
                 print(f"   ⚠️ Transcription skipped: {e}")
         
-        # 5. Safety assessment using CNN emotion
+        # 5. Safety assessment
         analysis_text = transcription_text if transcription_text else "voice message"
         safety = safety_engine.evaluate(analysis_text, emotion, confidence)
-        print(f"   Safety: crisis={safety.crisis_detected}")
         
-        # 6. Generate response using Groq (with CNN-detected emotion)
+        # 6. Generate response
         bot_response = ai.chat(analysis_text, emotion, safety.crisis_detected)
         if not bot_response:
             bot_response = "I'm listening."
@@ -239,6 +255,290 @@ def predict_emotion(file: UploadFile = File(...)):
         return {
             "emotion": emotion,
             "confidence": round(confidence, 3),
+            "transcription": transcription_text,
+            "bot_response": bot_response,
+            "audio_quality": {"clear": True},
+            "safety": {
+                "risk_level": safety.risk_level.value,
+                "crisis_detected": safety.crisis_detected,
+                "intensity": safety.intensity.value,
+                "warning": safety.warning_message
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    finally:
+        if os.path.exists(temp_file):
+            try:
+                os.remove(temp_file)
+            except:
+                pass
+
+# ==================== FRAME EMOTION ANALYSIS ====================
+
+@app.post("/analyze-frame-emotion")
+def analyze_frame_emotion(request: dict):
+    """Analyze a single video frame for emotion"""
+    
+    if not FER_AVAILABLE:
+        return {"emotion": "neutral", "confidence": 0.0}
+    
+    frame_base64 = request.get('frame', '')
+    
+    if not frame_base64:
+        return {"emotion": "neutral", "confidence": 0.0}
+    
+    try:
+        import base64
+        import io
+        from PIL import Image
+        
+        # Decode base64
+        if frame_base64.startswith('data:image'):
+            frame_base64 = frame_base64.split(',')[1]
+        
+        img_data = base64.b64decode(frame_base64)
+        img = Image.open(io.BytesIO(img_data))
+        img_array = np.array(img)
+        
+        # Detect emotion using FER
+        emotion_dict = fer_model.top_emotion(img_array)
+        
+        # ✅ IMPROVED: Handle None values properly
+        if emotion_dict and emotion_dict[0] and emotion_dict[1] is not None:
+            emotion, confidence = emotion_dict
+            return {
+                "emotion": emotion,
+                "confidence": round(float(confidence), 3)
+            }
+        else:
+            # No face detected or confidence is None
+            return {"emotion": "neutral", "confidence": 0.0}
+        
+    except Exception as e:
+        # Silently handle errors without printing
+        return {"emotion": "neutral", "confidence": 0.0}
+
+# ==================== TEXT + VIDEO EMOTION FUSION ====================
+
+@app.post("/predict-emotion-text-with-video")
+def predict_emotion_text_with_video(request: dict):
+    """Text emotion + video emotion fusion"""
+    
+    text = request.get('text', '').strip()
+    video_emotion_data = request.get('video_emotion')
+    
+    if not text:
+        raise HTTPException(status_code=400, detail="Empty text")
+    
+    print(f"\n📝 Text: '{text}'")
+    
+    try:
+        # 1. Text emotion from Groq
+        text_emotion, text_confidence, _ = ai.detect_emotion(text)
+        print(f"   📝 Text emotion: {text_emotion} ({text_confidence:.2f})")
+        
+        # 2. Get video emotion (if available)
+        video_emotion = None
+        video_confidence = 0.0
+        
+        if video_emotion_data:
+            video_emotion = video_emotion_data.get('emotion')
+            video_confidence = video_emotion_data.get('confidence', 0.0)
+            print(f"   📷 Video emotion: {video_emotion} ({video_confidence:.2f})")
+        
+        # 3. Emotion Fusion
+        if video_emotion:
+            if text_confidence > 0.6:
+                fused_emotion = text_emotion
+                fused_confidence = text_confidence * 0.6 + video_confidence * 0.4
+            else:
+                fused_emotion = video_emotion
+                fused_confidence = video_confidence * 0.6 + text_confidence * 0.4
+            
+            print(f"   ✅ Fused emotion: {fused_emotion} ({fused_confidence:.2f})")
+        else:
+            fused_emotion = text_emotion
+            fused_confidence = text_confidence
+        
+        # 4. Safety check
+        safety = safety_engine.evaluate(text, fused_emotion, fused_confidence)
+        
+        # 5. Generate response
+        bot_response = ai.chat(text, fused_emotion, safety.crisis_detected)
+        if not bot_response:
+            bot_response = "I'm here to listen."
+        
+        return {
+            "emotion": fused_emotion,
+            "confidence": round(fused_confidence, 3),
+            "text_emotion": text_emotion,
+            "video_emotion": video_emotion,
+            "bot_response": bot_response,
+            "safety": {
+                "risk_level": safety.risk_level.value,
+                "crisis_detected": safety.crisis_detected,
+                "intensity": safety.intensity.value,
+                "warning": safety.warning_message
+            }
+        }
+    
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==================== AUDIO + VIDEO + TEXT EMOTION FUSION ====================
+
+@app.post("/predict-emotion-with-video")
+def predict_emotion_with_video(
+    file: UploadFile = File(...),
+    video_emotion: str = Form(None)
+):
+    """Audio + Video + Text emotion fusion"""
+    
+    if model is None:
+        raise HTTPException(status_code=500, detail="CNN model not loaded")
+    
+    temp_file = f"temp_{int(time.time())}.webm"
+    
+    try:
+        # Save audio
+        content = file.file.read()
+        with open(temp_file, "wb") as f:
+            f.write(content)
+        
+        print(f"\n" + "="*70)
+        print("🎤 AUDIO EMOTION ANALYSIS")
+        print("="*70)
+        print(f"Audio size: {len(content)} bytes")
+        
+        # 1. Extract mel-spectrogram
+        print("\n📊 Processing audio...")
+        features = extract_mel_spectrogram(temp_file)
+        
+        if features is None:
+            raise HTTPException(status_code=400, detail="Failed to extract features")
+        
+        # 2. CNN Prediction with detailed logging
+        print("🧠 CNN Model inference...")
+        features_input = np.expand_dims(features, axis=0)
+        if len(model.input_shape) == 4:
+            features_input = np.expand_dims(features_input, axis=-1)
+        
+        predictions = model.predict(features_input, verbose=0)[0]
+        idx = np.argmax(predictions)
+        audio_emotion = label_encoder.inverse_transform([idx])[0]
+        audio_confidence = float(predictions[idx])
+        
+        print(f"\n✅ AUDIO EMOTION RESULT:")
+        print(f"   Emotion: {audio_emotion}")
+        print(f"   Confidence: {audio_confidence:.2%}")
+        print(f"\n📊 All emotion scores:")
+        
+        # Create visual bars for all emotions
+        for emotion, score in zip(label_encoder.classes_, predictions):
+            bar_length = int(score * 40)
+            bar = "█" * bar_length + "░" * (40 - bar_length)
+            print(f"   {emotion:10s} [{bar}] {score:.2%}")
+        
+        # 3. Get transcription
+        print("\n📝 Transcription:")
+        transcription_text = ""
+        if transcription_service:
+            try:
+                transcription = transcription_service.transcribe(temp_file)
+                transcription_text = transcription.get('text', '')
+                print(f"   '{transcription_text}'")
+            except Exception as e:
+                print(f"   ⚠️ Transcription skipped")
+        
+        # 4. Text emotion from transcription
+        text_emotion = None
+        text_confidence = 0.0
+        if transcription_text:
+            text_emotion, text_confidence, _ = ai.detect_emotion(transcription_text)
+            print(f"\n📝 Text emotion: {text_emotion} ({text_confidence:.2%})")
+        
+        # 5. VIDEO EMOTION - Parse if available
+        video_emotion_name = None
+        video_emotion_confidence = 0.0
+        
+        if video_emotion:
+            try:
+                import json
+                video_emotion_data = json.loads(video_emotion)
+                video_emotion_name = video_emotion_data.get('emotion')
+                video_emotion_confidence = video_emotion_data.get('confidence', 0.0)
+                print(f"📷 Video emotion: {video_emotion_name} ({video_emotion_confidence:.2%})")
+            except Exception as e:
+                print(f"⚠️ Could not parse video emotion: {e}")
+        else:
+            print(f"⚠️ No video emotion provided")
+        
+        # 6. EMOTION FUSION
+        print("\n" + "="*70)
+        print("🔄 EMOTION FUSION")
+        print("="*70)
+        
+        emotions_to_fuse = [audio_confidence]
+        emotion_names = [audio_emotion]
+        
+        if text_emotion:
+            emotions_to_fuse.append(text_confidence)
+            emotion_names.append(text_emotion)
+        
+        if video_emotion_name:
+            emotions_to_fuse.append(video_emotion_confidence)
+            emotion_names.append(video_emotion_name)
+        
+        # Fuse emotions
+        if len(emotions_to_fuse) > 1:
+            fused_confidence = np.mean(emotions_to_fuse)
+            from collections import Counter
+            emotion_counter = Counter(emotion_names)
+            fused_emotion = emotion_counter.most_common(1)[0][0]
+            num_modalities = len(emotion_names)
+            
+            print(f"\nModalities combined:")
+            print(f"   🎤 Audio:   {audio_emotion:10s} ({audio_confidence:.2%})")
+            if text_emotion:
+                print(f"   📝 Text:    {text_emotion:10s} ({text_confidence:.2%})")
+            if video_emotion_name:
+                print(f"   📷 Video:   {video_emotion_name:10s} ({video_emotion_confidence:.2%})")
+            
+            print(f"\n✅ FUSED RESULT ({num_modalities} modalities):")
+            print(f"   Emotion: {fused_emotion}")
+            print(f"   Confidence: {fused_confidence:.2%}")
+        else:
+            fused_emotion = audio_emotion
+            fused_confidence = audio_confidence
+            print(f"\n✅ Using audio emotion only")
+        
+        # 7. Safety assessment
+        analysis_text = transcription_text if transcription_text else "voice message"
+        safety = safety_engine.evaluate(analysis_text, fused_emotion, fused_confidence)
+        
+        # 8. Generate response
+        bot_response = ai.chat(analysis_text, fused_emotion, safety.crisis_detected)
+        if not bot_response:
+            bot_response = "I'm listening."
+        
+        print(f"\n💬 Bot response: {bot_response[:50]}...")
+        print("="*70 + "\n")
+        
+        return {
+            "emotion": fused_emotion,
+            "confidence": round(fused_confidence, 3),
+            "audio_emotion": audio_emotion,
+            "text_emotion": text_emotion,
+            "video_emotion": video_emotion_name,
             "transcription": transcription_text,
             "bot_response": bot_response,
             "audio_quality": {"clear": True},
@@ -292,25 +592,12 @@ def get_emotions():
 
 @app.post("/save-chat")
 def save_chat(request: SaveChatRequest, db: Session = Depends(get_db)):
-    """
-    Save a chat message with emotion to database
-    
-    Example request:
-    {
-        "user_id": 1,
-        "user_message": "I'm feeling great!",
-        "bot_response": "That's wonderful to hear...",
-        "emotion": "happy",
-        "emotion_confidence": 0.87
-    }
-    """
+    """Save a chat message with emotion to database"""
     try:
-        # Verify user exists
         user = db.query(User).filter(User.id == request.user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
-        # Create and save chat message
         chat_message = ChatMessage(
             user_id=request.user_id,
             user_message=request.user_message,
@@ -339,35 +626,12 @@ def save_chat(request: SaveChatRequest, db: Session = Depends(get_db)):
 
 @app.get("/chat-history/{user_id}")
 def get_chat_history(user_id: int, db: Session = Depends(get_db)):
-    """
-    Get all chat history for a user
-    Returns: List of all chats with user_id, ordered by newest first
-    
-    Example response:
-    {
-        "user_id": 1,
-        "message_count": 5,
-        "last_emotion": "happy",
-        "messages": [
-            {
-                "id": 5,
-                "user_message": "Thanks for listening",
-                "bot_response": "You're welcome...",
-                "emotion": "happy",
-                "emotion_confidence": 0.85,
-                "created_at": "2024-03-15T10:30:00"
-            },
-            ...
-        ]
-    }
-    """
+    """Get all chat history for a user"""
     try:
-        # Verify user exists
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
-        # Get all chat messages for this user, ordered by newest first
         chat_messages = db.query(ChatMessage).filter(
             ChatMessage.user_id == user_id
         ).order_by(desc(ChatMessage.created_at)).all()
@@ -381,7 +645,6 @@ def get_chat_history(user_id: int, db: Session = Depends(get_db)):
                 "messages": []
             }
         
-        # Convert to response format
         messages_response = [
             ChatHistoryResponse.model_validate(msg) for msg in chat_messages
         ]
@@ -408,28 +671,16 @@ def get_chat_history(user_id: int, db: Session = Depends(get_db)):
 
 @app.delete("/delete-chat-session/{user_id}")
 def delete_chat_session(user_id: int, db: Session = Depends(get_db)):
-    """
-    Delete ALL chat messages for a user (entire chat session)
-    
-    Example response:
-    {
-        "status": "deleted",
-        "user_id": 1,
-        "messages_deleted": 15
-    }
-    """
+    """Delete ALL chat messages for a user"""
     try:
-        # Verify user exists
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
-        # Count messages before deletion
         message_count = db.query(ChatMessage).filter(
             ChatMessage.user_id == user_id
         ).count()
         
-        # Delete all messages for this user
         db.query(ChatMessage).filter(
             ChatMessage.user_id == user_id
         ).delete()
@@ -452,17 +703,8 @@ def delete_chat_session(user_id: int, db: Session = Depends(get_db)):
 
 @app.delete("/delete-chat-message/{message_id}")
 def delete_chat_message(message_id: int, db: Session = Depends(get_db)):
-    """
-    Delete a single chat message by ID
-    
-    Example response:
-    {
-        "status": "deleted",
-        "message_id": 5
-    }
-    """
+    """Delete a single chat message by ID"""
     try:
-        # Find and delete the message
         chat_message = db.query(ChatMessage).filter(
             ChatMessage.id == message_id
         ).first()
@@ -489,26 +731,8 @@ def delete_chat_message(message_id: int, db: Session = Depends(get_db)):
 
 @app.get("/chat-stats/{user_id}")
 def get_chat_stats(user_id: int, db: Session = Depends(get_db)):
-    """
-    Get statistics about user's chat history
-    Returns: emotion distribution, total messages, avg confidence
-    
-    Example response:
-    {
-        "user_id": 1,
-        "total_messages": 15,
-        "avg_confidence": 0.82,
-        "emotion_distribution": {
-            "happy": 5,
-            "calm": 4,
-            "sad": 3,
-            "anxious": 2,
-            "angry": 1
-        }
-    }
-    """
+    """Get statistics about user's chat history"""
     try:
-        # Get all messages for user
         messages = db.query(ChatMessage).filter(
             ChatMessage.user_id == user_id
         ).all()
@@ -521,12 +745,10 @@ def get_chat_stats(user_id: int, db: Session = Depends(get_db)):
                 "emotion_distribution": {}
             }
         
-        # Calculate statistics
         emotion_counts = {}
         total_confidence = 0
         
         for msg in messages:
-            # Count emotions
             emotion = msg.emotion or "unknown"
             emotion_counts[emotion] = emotion_counts.get(emotion, 0) + 1
             total_confidence += msg.emotion_confidence
@@ -550,10 +772,12 @@ def get_chat_stats(user_id: int, db: Session = Depends(get_db)):
 if __name__ == "__main__":
     import uvicorn
     print("\n" + "="*70)
-    print("🚀 Mental Health Support API")
+    print("Mental Health Support API")
     print("📍 http://127.0.0.1:8000")
     print("✓ Text: Groq LLM Analysis")
     print("✓ Audio: CNN + Librosa Model")
+    print(f"✓ Video: FER Model ({' ✓ LOADED' if FER_AVAILABLE else ' ⚠️ NOT AVAILABLE'})")
+    print("✓ Multimodal Fusion: Text + Audio + (Video if available)")
     print("="*70 + "\n")
     
     uvicorn.run(app, host="127.0.0.1", port=8000, reload=False, access_log=False, log_level="warning")

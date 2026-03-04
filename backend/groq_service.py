@@ -9,9 +9,6 @@ class GroqService:
     def __init__(self):
         self.api_key = os.getenv("GROQ_API_KEY")
         self.client = None
-        
-        # ⭐ UPDATED MODEL: Llama 3.1 (Fastest & Current)
-        # Old 'llama3-8b-8192' is decommissioned.
         self.model = "llama-3.1-8b-instant"
         
         if not self.api_key:
@@ -37,7 +34,6 @@ class GroqService:
             chat_completion = self.client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
                 model=self.model,
-                # ⭐ JSON MODE (Guarantees valid JSON format)
                 response_format={"type": "json_object"},
                 temperature=0.2,
             )

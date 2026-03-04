@@ -1,0 +1,122 @@
+.emotion-widget {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 12px 20px;
+      background: linear-gradient(175deg, #020024, #090979);
+      border-radius: 12px;
+      color: white;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+      min-width: 300px;
+    }
+
+    .emotion-main {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+    }
+
+    .emotion-emoji {
+      font-size: 32px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.1);
+      }
+    }
+
+    .emotion-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .emotion-label {
+      font-size: 11px;
+      opacity: 0.8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .emotion-value {
+      font-size: 16px;
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+
+    .video-status,
+    .recording-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      opacity: 0.7;
+      transition: all 0.3s ease;
+    }
+
+    .video-status.active,
+    .recording-status.active {
+      opacity: 1;
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    .status-dot,
+    .recording-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.5);
+      transition: all 0.3s ease;
+    }
+
+    .video-status.active .status-dot {
+      background: #4ade80;
+      box-shadow: 0 0 8px rgba(74, 222, 128, 0.8);
+    }
+
+    .recording-status.active .recording-dot {
+      background: #ef4444;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 50%, 100% {
+        opacity: 1;
+      }
+      25%, 75% {
+        opacity: 0.5;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .emotion-widget {
+        min-width: unset;
+        padding: 10px 15px;
+        gap: 10px;
+      }
+
+      .emotion-emoji {
+        font-size: 24px;
+      }
+
+      .emotion-value {
+        font-size: 14px;
+      }
+
+      .video-status,
+      .recording-status {
+        font-size: 10px;
+        padding: 4px 8px;
+      }}
