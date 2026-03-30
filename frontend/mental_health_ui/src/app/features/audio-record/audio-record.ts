@@ -331,6 +331,12 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
           this.chatHistory = this.chatHistory.filter(chat => chat.id !== chatId);
           alert('Chat deleted');
           this.newChat();
+          // let toastEl = document.getElementById('deleteToast');
+          // let toast = new bootstrap.Toast(toastEl);
+
+
+
+          // toast.show();
         },
         error: (err) => alert('Failed to delete'),
       });

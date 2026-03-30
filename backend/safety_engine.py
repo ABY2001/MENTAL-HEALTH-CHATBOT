@@ -1,6 +1,7 @@
 """
-Safety & Triage Engine
+Safety & Triage Engine - UPDATED
 Detects crisis situations, emotional intensity, and triggers appropriate responses
+Enhanced with comprehensive keyword detection and pattern matching
 """
 
 import re
@@ -34,41 +35,213 @@ class SafetyAssessment:
 class SafetyTriageEngine:
     """
     Evaluates user input for safety risks and emotional intensity
+    Enhanced with comprehensive crisis detection
     """
     
     def __init__(self):
-        # Critical crisis keywords (immediate intervention)
+        # COMPREHENSIVE CRITICAL KEYWORDS - Updated with all variations
         self.critical_keywords = {
-            'suicide': ['suicide', 'kill myself', 'end my life', 'want to die', 
-                       'better off dead', 'end it all', 'take my life', 'no reason to live'],
-            'self_harm': ['cut myself', 'hurt myself', 'self harm', 'burn myself',
-                         'harm myself', 'injure myself', 'mutilate'],
-            'overdose': ['overdose', 'take all pills', 'pills to die', 'lethal dose'],
-            'immediate_danger': ['going to kill', 'plan to die', 'goodbye forever',
-                                'final message', 'ending tonight']
+            'suicide': [
+                # Direct suicide mentions
+                'suicide', 'suicidal', 'suicidally',
+                
+                # Kill myself (all variations) - ⭐ FIX for "killing myself"
+                'kill myself', 'killing myself', 'killed myself',
+                'want to kill myself', 'will kill myself',
+                'think about killing myself', 'thinking of killing myself',
+                'feel like killing myself', 'feel like i should kill',
+                'i am going to kill myself', 'i will kill myself',
+                'thinking about killing myself', 'thinking of killing',
+                
+                # End life
+                'end my life', 'end my self', 'end it all',
+                'ending my life', 'going to end my life',
+                'end it', 'end everything', 'put an end to it',
+                
+                # Death wish
+                'want to die', 'want to be dead', 'wish i was dead',
+                'wish i was never born', 'wish i could die',
+                'i will die', 'i will be dead', 'i want to die',
+                'better off dead', 'better if i was dead',
+                'better if i was gone', 'better if i wasn\'t here',
+                'better off gone', 'world would be better without me',
+                
+                # No reason to live
+                'no reason to live', 'no point in living', 'pointless to live',
+                'no reason to continue', 'can\'t continue',
+                'no point to living', 'pointless existence', 'life is pointless',
+                
+                # Hopelessness and despair
+                'no hope left', 'hopeless', 'can\'t go on',
+                'can\'t take it anymore', 'can\'t take this',
+                'cannot go on', 'cannot continue', 'i give up',
+                'hopeless situation', 'nothing matters',
+                
+                # Burden to others
+                'burden to everyone', 'burden to my family',
+                'everyone would be better off without me',
+                'no one needs me', 'no one cares', 'everyone hates me',
+                'i\'m a burden', 'burden on my family',
+                
+                # Final messages and goodbyes
+                'goodbye forever', 'final goodbye', 'final message',
+                'this is my last', 'last time talking',
+                'never going to see you again', 'goodbye cruel world',
+                'this is it', 'goodbye everyone', 'last goodbye',
+                'farewell', 'this is the end',
+                
+                # Specific plans/timeline
+                'kill myself tonight', 'kill myself tomorrow',
+                'kill myself this week', 'kill myself soon',
+                'ending tonight', 'dying tonight', 'die tonight',
+                'end it tonight', 'dying tomorrow', 'die tomorrow',
+                
+                # Preparation and planning
+                'preparing to die', 'ready to die',
+                'made a plan', 'have a plan to kill',
+                'already decided', 'already planned',
+                'have decided to die', 'committed to dying',
+                'set on dying', 'plan is set',
+                
+                # Methods and definite planning
+                'plan to die', 'planning to die',
+                'going to die', 'planning to end it',
+                'not going to survive', 'will not survive',
+                'will not make it', 'won\'t make it',
+                'not going to make it', 'can\'t make it',
+                'won\'t survive', 'not survive',
+                
+                # Active suicide preparation
+                'saying goodbye', 'making arrangements',
+                'getting affairs in order', 'last will',
+                'final arrangements', 'goodbye note',
+                'suicide note', 'leave a note'
+            ],
+            
+            'self_harm': [
+                # Cut (all variations)
+                'cut myself', 'cutting myself', 'want to cut',
+                'urge to cut', 'i cut myself', 'keep cutting',
+                'cutting my wrists', 'cut my wrists',
+                'want to cut myself', 'feel like cutting',
+                'cutting urge', 'cuts on my body', 'cutting myself blood',
+                
+                # Harm/hurt (all variations)
+                'harm myself', 'harming myself', 'hurt myself',
+                'hurting myself', 'want to hurt', 'urge to hurt',
+                'i hurt myself', 'keep hurting',
+                'want to hurt myself', 'hurting urge',
+                
+                # Burn/burn self
+                'burn myself', 'burning myself', 'want to burn',
+                'burned myself', 'burn my self', 'self immolation',
+                'burning urge', 'want to burn',
+                
+                # Punch/hit/bang
+                'punch myself', 'hit myself', 'bang my head',
+                'punching myself', 'hitting myself', 'head banging',
+                'want to punch', 'want to hit',
+                
+                # Other self-harm methods
+                'self harm', 'self-harm', 'mutilate',
+                'pick at myself', 'scratch myself',
+                'starve myself', 'harm self',
+                'injure myself', 'injuring myself',
+                'scratching myself', 'picking myself',
+                'pinch myself hard', 'self injury'
+            ],
+            
+            'overdose': [
+                'overdose', 'overdosing', 'overdosed',
+                'take all pills', 'take too many pills',
+                'pills to die', 'lethal dose',
+                'drug overdose', 'will overdose',
+                'planning to overdose', 'going to overdose',
+                'overdose on pills', 'overdose on drugs',
+                'want to overdose', 'take my life with pills',
+                'overdose intent', 'lethal overdose',
+                'pills overdose', 'drug overdose plan'
+            ],
+            
+            'immediate_danger': [
+                # Going to/plan to (imminent)
+                'going to kill', 'plan to die', 'planning to die',
+                'going to die', 'planning to end it',
+                'about to die', 'about to kill myself',
+                'about to end it', 'about to go',
+                
+                # Not going to survive
+                'not going to survive', 'will not survive',
+                'will not make it', 'won\'t make it',
+                'not going to make it', 'can\'t make it',
+                'won\'t survive', 'not survive', 'won\'t live',
+                
+                # Already decided and committed
+                'already decided to', 'have decided to die',
+                'committed to dying', 'set on dying',
+                'determined to die', 'resolved to die',
+                
+                # Final goodbyes and last statements
+                'goodbye forever', 'this is goodbye',
+                'final goodbye', 'final message',
+                'last time', 'last goodbye',
+                'end of the line', 'no way out',
+                'last message', 'goodbye notes'
+            ]
         }
         
-        # High-risk keywords (urgent attention needed)
+        # HIGH RISK KEYWORDS - Not immediately life-threatening but serious
         self.high_risk_keywords = {
-            'suicidal_ideation': ['suicidal thoughts', 'thinking about death', 
-                                 'wish I was dead', 'life not worth living'],
-            'severe_depression': ['cannot go on', 'give up', 'no hope', 'hopeless',
-                                 'worthless', 'burden to everyone', 'pointless'],
-            'severe_anxiety': ['panic attack', 'cannot breathe', 'heart racing',
-                              'going crazy', 'losing control', 'terror'],
-            'psychosis': ['hearing voices', 'people following', 'conspiracy',
-                         'they are after me', 'not real', 'hallucinating']
+            'suicidal_ideation': [
+                'suicidal thoughts', 'thinking about death', 
+                'wish i was dead', 'life not worth living',
+                'suicidal ideation', 'death ideation',
+                'thinking of ending it', 'considering death',
+                'passive death wish', 'death seems appealing'
+            ],
+            'severe_depression': [
+                'cannot go on', 'give up', 'no hope', 'hopeless',
+                'worthless', 'burden to everyone', 'pointless',
+                'can\'t take anymore', 'overwhelming', 'depths of despair',
+                'deep depression', 'severe depression', 'can\'t cope'
+            ],
+            'severe_anxiety': [
+                'panic attack', 'cannot breathe', 'heart racing',
+                'going crazy', 'losing control', 'terror',
+                'severe panic', 'having breakdown', 'completely panicked',
+                'can\'t breathe properly', 'think i\'m dying'
+            ],
+            'psychosis': [
+                'hearing voices', 'people following', 'conspiracy',
+                'they are after me', 'not real', 'hallucinating',
+                'seeing things', 'being watched', 'they\'re out to get me'
+            ],
+            'trauma': [
+                'traumatic', 'flashback', 'nightmare', 'abuse', 'assault',
+                'ptsd', 'triggered', 'trauma response'
+            ]
         }
-        
-        # Medium-risk keywords (monitoring needed)
+ 
+        # MEDIUM RISK KEYWORDS - Concerning but not immediately dangerous
         self.medium_risk_keywords = {
-            'depression': ['depressed', 'sad', 'empty', 'numb', 'lonely', 'isolated'],
-            'anxiety': ['anxious', 'worried', 'nervous', 'stressed', 'overwhelmed'],
-            'anger': ['furious', 'rage', 'angry', 'hate', 'violent thoughts'],
-            'trauma': ['traumatic', 'flashback', 'nightmare', 'abuse', 'assault']
+            'depression': [
+                'depressed', 'sad', 'empty', 'numb', 'lonely', 'isolated',
+                'feeling down', 'blue', 'down mood', 'depressive'
+            ],
+            'anxiety': [
+                'anxious', 'worried', 'nervous', 'stressed', 'overwhelmed',
+                'anxious thoughts', 'worried thoughts', 'stress'
+            ],
+            'anger': [
+                'furious', 'rage', 'angry', 'hate', 'violent thoughts',
+                'very angry', 'so mad', 'boiling inside'
+            ],
+            'trauma': [
+                'traumatic', 'flashback', 'nightmare', 'abuse', 'assault'
+            ]
         }
         
-        # Crisis hotlines and resources
+        # Crisis hotlines and resources (India focused)
         self.crisis_resources = {
     'suicide': [
         {
@@ -387,6 +560,7 @@ class SafetyTriageEngine:
         }
     ]
 }
+        
     def evaluate(self, text: str, emotion: str, confidence: float) -> SafetyAssessment:
         """
         Main evaluation method - analyzes text and emotion for safety risks
@@ -397,6 +571,11 @@ class SafetyTriageEngine:
         critical_detected, critical_triggers = self._check_keywords(
             text_lower, self.critical_keywords
         )
+        
+        # NEW: Check for harmful patterns (catches variations like "killing myself")
+        pattern_critical, pattern_triggers = self._check_harmful_patterns(text_lower)
+        critical_detected = critical_detected or pattern_critical
+        critical_triggers.extend(pattern_triggers)
         
         if critical_detected:
             return self._create_critical_assessment(critical_triggers)
@@ -436,13 +615,54 @@ class SafetyTriageEngine:
         
         return len(triggered) > 0, triggered
     
+    def _check_harmful_patterns(self, text: str) -> Tuple[bool, List[str]]:
+        """
+        Check for harmful patterns and variations using regex
+        Catches: "killing myself", "want to kill", gerunds, indirect language, etc.
+        This is the KEY FIX for detecting "feel like killing myself"
+        """
+        patterns = [
+            # Suicide patterns - catches all variations
+            r'(kill|end|harm|hurt|cut|burn|stab).*myself',      # kill/killing myself
+            r'(suicid|kill|die|death|end).*myself',             # suicide/killing/dying myself
+            r'want.*to.*(die|kill|end|harm)',                   # want to die/kill
+            r'think.*about.*(kill|die|end|harm)',               # thinking about killing
+            r'feel.*like.*(kill|die|end|harm)',                 # feel like killing - ⭐ YOUR CASE
+            r'plan.*to.*(die|kill|end)',                        # plan to die
+            r'ready.*to.*(die|kill)',                           # ready to die
+            r'better.*off.*(dead|gone)',                        # better off dead
+            r'(can\'t|cannot|no).*(go|live|continue)',          # can't continue living
+            r'(no|without).*(point|reason|hope)',               # no point in living
+            r'burden.*to.*everyone',                            # burden to everyone
+            r'(always|will).*(die|kill)',                       # will/always die
+            r'(only|just).*way.*out',                           # only way out
+            r'no.*reason.*live',                                # no reason to live
+            r'life.*not.*worth',                                # life not worth
+            r'everyone.*better.*without.*me',                   # everyone better without me
+            r'(going|about).*to.*(kill|die|end)',              # going to die
+            r'(final|last).*(message|goodbye)',                 # final/last message
+            r'not.*going.*survive',                             # not going to survive
+            r'decided.*to.*die',                                # decided to die
+            r'(cutting|cutting).*wrist',                        # cutting wrists
+            r'hurt.*myself.*badly',                             # hurt myself badly
+        ]
+        
+        triggered = []
+        for pattern in patterns:
+            if re.search(pattern, text, re.IGNORECASE):
+                matches = re.findall(pattern, text, re.IGNORECASE)
+                if matches:
+                    triggered.append(f"Pattern: {pattern}")
+        
+        return len(triggered) > 0, triggered
+    
     def _assess_intensity(self, emotion: str, confidence: float, text: str) -> EmotionIntensity:
         """
         Assess emotional intensity based on emotion type, confidence, and text patterns
         """
         # Intensity indicators
-        extreme_words = ['extremely', 'unbearably', 'completely', 'totally', 'absolutely']
-        severe_words = ['very', 'really', 'so', 'too', 'incredibly']
+        extreme_words = ['extremely', 'unbearably', 'completely', 'totally', 'absolutely', 'can\'t take']
+        severe_words = ['very', 'really', 'so', 'too', 'incredibly', 'awful', 'terrible']
         
         has_extreme = any(word in text for word in extreme_words)
         has_severe = any(word in text for word in severe_words)
@@ -515,3 +735,38 @@ class SafetyTriageEngine:
             should_respond_normally=True,
             warning_message=""
         )
+
+
+# Example usage and testing
+if __name__ == "__main__":
+    engine = SafetyTriageEngine()
+    
+    # Test cases that SHOULD be caught
+    test_cases = [
+        ("feel like killing myself", "sad", 0.9),           # ⭐ YOUR CASE
+        ("killing myself", "sad", 0.85),                    # ⭐ Gerund form
+        ("want to kill myself", "angry", 0.8),              # ⭐ Explicit
+        ("thinking about killing myself", "sad", 0.9),      # ⭐ Thought
+        ("i will kill myself tonight", "sad", 0.95),        # ⭐ Plan + time
+        ("have a plan to kill myself", "fearful", 0.9),     # ⭐ Active plan
+        ("cutting myself", "angry", 0.7),                   # ⭐ Self-harm gerund
+        ("burning myself", "sad", 0.8),                     # ⭐ Self-harm
+        ("overdosing tonight", "sad", 0.95),                # ⭐ Overdose plan
+        ("better off dead", "sad", 0.85),                   # ⭐ Hopelessness
+        ("no reason to live", "sad", 0.9),                  # ⭐ Hopelessness
+        ("burden to everyone", "sad", 0.8),                 # ⭐ Worthlessness
+    ]
+    
+    print("=" * 80)
+    print("SAFETY ENGINE TEST RESULTS")
+    print("=" * 80)
+    
+    for test_text, emotion, confidence in test_cases:
+        result = engine.evaluate(test_text, emotion, confidence)
+        print(f"\nInput: '{test_text}'")
+        print(f"Emotion: {emotion} (Confidence: {confidence})")
+        print(f"Risk Level: {result.risk_level.value}")
+        print(f"Crisis Detected: {result.crisis_detected}")
+        print(f"Action: {result.recommended_action}")
+        print(f"Triggered Keywords: {result.triggered_keywords[:2] if result.triggered_keywords else 'None'}")
+        print("-" * 80)

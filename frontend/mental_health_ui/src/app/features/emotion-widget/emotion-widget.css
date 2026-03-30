@@ -9,6 +9,7 @@
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
       min-width: 300px;
+      border: 2px solid white;
     }
 
     .emotion-main {

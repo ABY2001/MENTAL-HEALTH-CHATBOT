@@ -765,10 +765,10 @@ def get_chat_stats(user_id: int, db: Session = Depends(get_db)):
         }
     
     except Exception as e:
-        print(f"❌ Error getting chat stats: {e}")
+        print(f" Error getting chat stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# ==================== RUN ====================
+
 if __name__ == "__main__":
     import uvicorn
     print("\n" + "="*70)
