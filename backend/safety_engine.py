@@ -42,10 +42,37 @@ class SafetyTriageEngine:
         # COMPREHENSIVE CRITICAL KEYWORDS - Updated with all variations
         self.critical_keywords = {
             'suicide': [
-                # Direct suicide mentions
+                # ⭐ BARE WORD FORMS - must be first
                 'suicide', 'suicidal', 'suicidally',
+                'commit suicide', 'committing suicide',
+                'committed suicide',
                 
-                # Kill myself (all variations) - ⭐ FIX for "killing myself"
+                # ⭐ "suicide is my only option" type phrases
+                'suicide is my only option',
+                'suicide is the only option',
+                'only option is suicide',
+                'suicide is the only way',
+                'only way out is suicide',
+                'suicide is the answer',
+                'suicide is the solution',
+                'suicide seems like the only',
+                'thinking about suicide',
+                'thought about suicide',
+                'thoughts of suicide',
+                'considering suicide',
+                'attempt suicide',
+                'attempting suicide',
+                'will commit suicide',
+                'going to commit suicide',
+                'plan to commit suicide',
+                'planning to commit suicide',
+                'want to commit suicide',
+                'suicide tonight',
+                'suicide tomorrow',
+                'suicide note',
+                'suicide attempt',
+                
+                # Kill myself (all variations)
                 'kill myself', 'killing myself', 'killed myself',
                 'want to kill myself', 'will kill myself',
                 'think about killing myself', 'thinking of killing myself',
@@ -115,34 +142,25 @@ class SafetyTriageEngine:
                 'saying goodbye', 'making arrangements',
                 'getting affairs in order', 'last will',
                 'final arrangements', 'goodbye note',
-                'suicide note', 'leave a note'
+                'leave a note'
             ],
             
             'self_harm': [
-                # Cut (all variations)
                 'cut myself', 'cutting myself', 'want to cut',
                 'urge to cut', 'i cut myself', 'keep cutting',
                 'cutting my wrists', 'cut my wrists',
                 'want to cut myself', 'feel like cutting',
                 'cutting urge', 'cuts on my body', 'cutting myself blood',
-                
-                # Harm/hurt (all variations)
                 'harm myself', 'harming myself', 'hurt myself',
                 'hurting myself', 'want to hurt', 'urge to hurt',
                 'i hurt myself', 'keep hurting',
                 'want to hurt myself', 'hurting urge',
-                
-                # Burn/burn self
                 'burn myself', 'burning myself', 'want to burn',
                 'burned myself', 'burn my self', 'self immolation',
                 'burning urge', 'want to burn',
-                
-                # Punch/hit/bang
                 'punch myself', 'hit myself', 'bang my head',
                 'punching myself', 'hitting myself', 'head banging',
                 'want to punch', 'want to hit',
-                
-                # Other self-harm methods
                 'self harm', 'self-harm', 'mutilate',
                 'pick at myself', 'scratch myself',
                 'starve myself', 'harm self',
@@ -164,40 +182,43 @@ class SafetyTriageEngine:
             ],
             
             'immediate_danger': [
-                # Going to/plan to (imminent)
                 'going to kill', 'plan to die', 'planning to die',
                 'going to die', 'planning to end it',
                 'about to die', 'about to kill myself',
                 'about to end it', 'about to go',
-                
-                # Not going to survive
                 'not going to survive', 'will not survive',
                 'will not make it', 'won\'t make it',
                 'not going to make it', 'can\'t make it',
                 'won\'t survive', 'not survive', 'won\'t live',
-                
-                # Already decided and committed
                 'already decided to', 'have decided to die',
                 'committed to dying', 'set on dying',
                 'determined to die', 'resolved to die',
-                
-                # Final goodbyes and last statements
                 'goodbye forever', 'this is goodbye',
                 'final goodbye', 'final message',
                 'last time', 'last goodbye',
                 'end of the line', 'no way out',
-                'last message', 'goodbye notes'
+                'last message', 'goodbye notes',
+                # ⭐ NEW
+                'commit suicide',
+                'will commit suicide',
+                'going to commit suicide',
+                'plan to commit suicide',
+                'suicide tonight',
+                'suicide tomorrow',
             ]
         }
         
-        # HIGH RISK KEYWORDS - Not immediately life-threatening but serious
+        # HIGH RISK KEYWORDS
         self.high_risk_keywords = {
             'suicidal_ideation': [
                 'suicidal thoughts', 'thinking about death', 
                 'wish i was dead', 'life not worth living',
                 'suicidal ideation', 'death ideation',
                 'thinking of ending it', 'considering death',
-                'passive death wish', 'death seems appealing'
+                'passive death wish', 'death seems appealing',
+                # ⭐ NEW
+                'only option', 'no other option', 'no other choice',
+                'only way out', 'only solution',
             ],
             'severe_depression': [
                 'cannot go on', 'give up', 'no hope', 'hopeless',
@@ -222,7 +243,7 @@ class SafetyTriageEngine:
             ]
         }
  
-        # MEDIUM RISK KEYWORDS - Concerning but not immediately dangerous
+        # MEDIUM RISK KEYWORDS
         self.medium_risk_keywords = {
             'depression': [
                 'depressed', 'sad', 'empty', 'numb', 'lonely', 'isolated',
@@ -243,323 +264,323 @@ class SafetyTriageEngine:
         
         # Crisis hotlines and resources (India focused)
         self.crisis_resources = {
-    'suicide': [
-        {
-            'name': 'AASRA - Lifeline for Suicide Prevention',
-            'number': '9820466726',
-            'whatsapp': '+91 9820466726',
-            'email': 'aasra@aasra.info',
-            'website': 'www.aasra.info',
-            'available': '24/7',
-            'languages': ['Hindi', 'Marathi', 'English'],
-            'description': 'Free and confidential emotional support for suicide prevention'
-        },
-        {
-            'name': 'iCall - Mental Health Crisis Helpline',
-            'number': '9152987821',
-            'whatsapp': '+91 9152987821',
-            'email': 'info@icallhelpline.org',
-            'website': 'www.icallhelpline.org',
-            'available': '24/7',
-            'languages': ['Hindi', 'English', 'Marathi'],
-            'description': 'Free emotional support and crisis intervention'
-        },
-        {
-            'name': 'Vandrevala Foundation - Lifeline',
-            'number': '9999 77 6666',
-            'whatsapp': '+91 9999776666',
-            'email': 'help@vandrevalafoundation.com',
-            'website': 'www.vandrevalafoundation.com',
-            'available': '24/7',
-            'languages': ['Hindi', 'Marathi', 'English'],
-            'description': 'Mental health support and suicide prevention'
-        },
-        {
-            'name': 'RailTel 24x7 Helpline',
-            'number': '182',
-            'toll_free': 'Yes',
-            'available': '24/7',
-            'languages': ['Hindi', 'English', 'Regional'],
-            'description': 'Emergency support at railway stations (ACSM Suicide Prevention)'
+            'suicide': [
+                {
+                    'name': 'AASRA - Lifeline for Suicide Prevention',
+                    'number': '9820466726',
+                    'whatsapp': '+91 9820466726',
+                    'email': 'aasra@aasra.info',
+                    'website': 'www.aasra.info',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'Marathi', 'English'],
+                    'description': 'Free and confidential emotional support for suicide prevention'
+                },
+                {
+                    'name': 'iCall - Mental Health Crisis Helpline',
+                    'number': '9152987821',
+                    'whatsapp': '+91 9152987821',
+                    'email': 'info@icallhelpline.org',
+                    'website': 'www.icallhelpline.org',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'English', 'Marathi'],
+                    'description': 'Free emotional support and crisis intervention'
+                },
+                {
+                    'name': 'Vandrevala Foundation - Lifeline',
+                    'number': '9999 77 6666',
+                    'whatsapp': '+91 9999776666',
+                    'email': 'help@vandrevalafoundation.com',
+                    'website': 'www.vandrevalafoundation.com',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'Marathi', 'English'],
+                    'description': 'Mental health support and suicide prevention'
+                },
+                {
+                    'name': 'RailTel 24x7 Helpline',
+                    'number': '182',
+                    'toll_free': 'Yes',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'English', 'Regional'],
+                    'description': 'Emergency support at railway stations (ACSM Suicide Prevention)'
+                }
+            ],
+            
+            'self_harm': [
+                {
+                    'name': 'iCall - Self-Harm Support',
+                    'number': '9152987821',
+                    'whatsapp': '+91 9152987821',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'English', 'Marathi'],
+                    'description': 'Support for self-harm urges and impulses'
+                },
+                {
+                    'name': 'Vandrevala Foundation - Behavioral Health',
+                    'number': '9999 77 6666',
+                    'whatsapp': '+91 9999776666',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'Marathi', 'English'],
+                    'description': 'Support for self-harm and destructive behaviors'
+                },
+                {
+                    'name': 'AASRA - Emotional Support',
+                    'number': '9820466726',
+                    'whatsapp': '+91 9820466726',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'Marathi', 'English'],
+                    'description': 'Counseling for self-harm and emotional distress'
+                }
+            ],
+            
+            'mental_health': [
+                {
+                    'name': 'AASRA - Mental Health Counseling',
+                    'number': '9820466726',
+                    'whatsapp': '+91 9820466726',
+                    'email': 'aasra@aasra.info',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'Marathi', 'English'],
+                    'description': 'Mental health counseling, depression, anxiety support'
+                },
+                {
+                    'name': 'iCall - Mental Health Support',
+                    'number': '9152987821',
+                    'whatsapp': '+91 9152987821',
+                    'email': 'info@icallhelpline.org',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'English', 'Marathi'],
+                    'description': 'Support for depression, anxiety, stress management'
+                },
+                {
+                    'name': 'NCPEDP - Mental Health Resources',
+                    'number': '011-4141-7800',
+                    'email': 'info@ncpedp.org',
+                    'website': 'www.ncpedp.org',
+                    'available': 'Mon-Fri 9am-6pm IST',
+                    'languages': ['Hindi', 'English'],
+                    'description': 'Mental health resources and disability support'
+                },
+                {
+                    'name': 'Mental Health Foundation (India)',
+                    'number': '1800-425-33-33',
+                    'toll_free': 'Yes',
+                    'email': 'info@mhfi.org',
+                    'website': 'www.mhfi.org',
+                    'available': '9am-6pm IST (Mon-Fri)',
+                    'languages': ['Hindi', 'English'],
+                    'description': 'Mental health information, support, and resources'
+                },
+                {
+                    'name': 'Vandrevala Foundation - General Support',
+                    'number': '9999 77 6666',
+                    'whatsapp': '+91 9999776666',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'Marathi', 'English'],
+                    'description': 'Mental health awareness and support services'
+                }
+            ],
+            
+            'depression': [
+                {
+                    'name': 'iCall - Depression Support',
+                    'number': '9152987821',
+                    'whatsapp': '+91 9152987821',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'English', 'Marathi'],
+                    'description': 'Support for depression, low mood, hopelessness'
+                },
+                {
+                    'name': 'Vandrevala Foundation - Depression Help',
+                    'number': '9999 77 6666',
+                    'whatsapp': '+91 9999776666',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'Marathi', 'English'],
+                    'description': 'Depression counseling and management'
+                },
+                {
+                    'name': 'AASRA - Emotional Support',
+                    'number': '9820466726',
+                    'whatsapp': '+91 9820466726',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'Marathi', 'English'],
+                    'description': 'Depression and emotional distress support'
+                }
+            ],
+            
+            'anxiety': [
+                {
+                    'name': 'iCall - Anxiety Support',
+                    'number': '9152987821',
+                    'whatsapp': '+91 9152987821',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'English', 'Marathi'],
+                    'description': 'Support for anxiety, panic attacks, stress'
+                },
+                {
+                    'name': 'Vandrevala Foundation - Anxiety Management',
+                    'number': '9999 77 6666',
+                    'whatsapp': '+91 9999776666',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'Marathi', 'English'],
+                    'description': 'Anxiety disorders and panic attack support'
+                }
+            ],
+            
+            'domestic_violence': [
+                {
+                    'name': 'National Domestic Violence Hotline (India)',
+                    'number': '181',
+                    'toll_free': 'Yes',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'English', 'Regional'],
+                    'description': 'Support for domestic violence victims (for women)'
+                },
+                {
+                    'name': 'AASRA - Domestic Violence Support',
+                    'number': '9820466726',
+                    'whatsapp': '+91 9820466726',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'Marathi', 'English'],
+                    'description': 'Support for domestic violence survivors'
+                },
+                {
+                    'name': 'Sneha - Mumbai Based NGO',
+                    'number': '9922004948',
+                    'email': 'contact@snehamumbai.org',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'Marathi', 'English'],
+                    'description': 'Support for violence survivors and counseling'
+                }
+            ],
+            
+            'substance_abuse': [
+                {
+                    'name': 'All India Institute of Medical Sciences (AIIMS) - De-addiction',
+                    'number': '011-26589169',
+                    'email': 'aiimsdrugs@gmail.com',
+                    'available': 'Mon-Fri 9am-5pm IST',
+                    'languages': ['Hindi', 'English'],
+                    'description': 'Professional de-addiction and substance abuse treatment'
+                },
+                {
+                    'name': 'Narcotics Anonymous India',
+                    'number': '7738-022022',
+                    'whatsapp': '+91 7738022022',
+                    'email': 'naindia@outlook.com',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'English'],
+                    'description': 'Support for substance abuse recovery'
+                },
+                {
+                    'name': 'iCall - Substance Abuse Support',
+                    'number': '9152987821',
+                    'whatsapp': '+91 9152987821',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'English', 'Marathi'],
+                    'description': 'Support for substance abuse and addiction issues'
+                }
+            ],
+            
+            'emergency': [
+                {
+                    'name': 'National Emergency Helpline',
+                    'number': '100',
+                    'toll_free': 'Yes',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'English', 'Regional'],
+                    'description': 'Police emergency response'
+                },
+                {
+                    'name': 'Ambulance/Medical Emergency',
+                    'number': '102',
+                    'toll_free': 'Yes',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'English', 'Regional'],
+                    'description': 'Emergency medical services'
+                },
+                {
+                    'name': 'Fire Emergency',
+                    'number': '101',
+                    'toll_free': 'Yes',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'English'],
+                    'description': 'Fire services and rescue'
+                }
+            ],
+            
+            'professional_help': [
+                {
+                    'name': 'Psychology Foundation of India',
+                    'number': '011-4150-2442',
+                    'email': 'info@psychologyfoundation.org',
+                    'website': 'www.psychologyfoundation.org',
+                    'available': 'Mon-Fri 9am-6pm IST',
+                    'languages': ['Hindi', 'English'],
+                    'description': 'Connect with licensed therapists and psychologists'
+                },
+                {
+                    'name': 'Fortis Mental Health Hospitals',
+                    'number': '1800-102-5008',
+                    'toll_free': 'Yes',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'English'],
+                    'description': 'Professional psychiatric and mental health care'
+                },
+                {
+                    'name': 'Max Healthcare - Mental Health',
+                    'number': '8860-018880',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'English'],
+                    'description': 'Professional mental health services across India'
+                },
+                {
+                    'name': 'Apollo Hospitals - Psychiatry',
+                    'number': '1860-500-1066',
+                    'toll_free': 'Yes',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'English'],
+                    'description': 'Mental health and psychiatric care'
+                }
+            ],
+            
+            'grief_loss': [
+                {
+                    'name': 'iCall - Grief Support',
+                    'number': '9152987821',
+                    'whatsapp': '+91 9152987821',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'English', 'Marathi'],
+                    'description': 'Support for grief, loss, and bereavement'
+                },
+                {
+                    'name': 'AASRA - Loss and Grief Counseling',
+                    'number': '9820466726',
+                    'whatsapp': '+91 9820466726',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'Marathi', 'English'],
+                    'description': 'Counseling for grief and loss'
+                }
+            ],
+            
+            'family_issues': [
+                {
+                    'name': 'iCall - Family Counseling',
+                    'number': '9152987821',
+                    'whatsapp': '+91 9152987821',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'English', 'Marathi'],
+                    'description': 'Support for family conflicts, relationship issues'
+                },
+                {
+                    'name': 'Vandrevala Foundation - Family Support',
+                    'number': '9999 77 6666',
+                    'whatsapp': '+91 9999776666',
+                    'available': '24/7',
+                    'languages': ['Hindi', 'Marathi', 'English'],
+                    'description': 'Family counseling and relationship support'
+                }
+            ]
         }
-    ],
-    
-    'self_harm': [
-        {
-            'name': 'iCall - Self-Harm Support',
-            'number': '9152987821',
-            'whatsapp': '+91 9152987821',
-            'available': '24/7',
-            'languages': ['Hindi', 'English', 'Marathi'],
-            'description': 'Support for self-harm urges and impulses'
-        },
-        {
-            'name': 'Vandrevala Foundation - Behavioral Health',
-            'number': '9999 77 6666',
-            'whatsapp': '+91 9999776666',
-            'available': '24/7',
-            'languages': ['Hindi', 'Marathi', 'English'],
-            'description': 'Support for self-harm and destructive behaviors'
-        },
-        {
-            'name': 'AASRA - Emotional Support',
-            'number': '9820466726',
-            'whatsapp': '+91 9820466726',
-            'available': '24/7',
-            'languages': ['Hindi', 'Marathi', 'English'],
-            'description': 'Counseling for self-harm and emotional distress'
-        }
-    ],
-    
-    'mental_health': [
-        {
-            'name': 'AASRA - Mental Health Counseling',
-            'number': '9820466726',
-            'whatsapp': '+91 9820466726',
-            'email': 'aasra@aasra.info',
-            'available': '24/7',
-            'languages': ['Hindi', 'Marathi', 'English'],
-            'description': 'Mental health counseling, depression, anxiety support'
-        },
-        {
-            'name': 'iCall - Mental Health Support',
-            'number': '9152987821',
-            'whatsapp': '+91 9152987821',
-            'email': 'info@icallhelpline.org',
-            'available': '24/7',
-            'languages': ['Hindi', 'English', 'Marathi'],
-            'description': 'Support for depression, anxiety, stress management'
-        },
-        {
-            'name': 'NCPEDP - Mental Health Resources',
-            'number': '011-4141-7800',
-            'email': 'info@ncpedp.org',
-            'website': 'www.ncpedp.org',
-            'available': 'Mon-Fri 9am-6pm IST',
-            'languages': ['Hindi', 'English'],
-            'description': 'Mental health resources and disability support'
-        },
-        {
-            'name': 'Mental Health Foundation (India)',
-            'number': '1800-425-33-33',
-            'toll_free': 'Yes',
-            'email': 'info@mhfi.org',
-            'website': 'www.mhfi.org',
-            'available': '9am-6pm IST (Mon-Fri)',
-            'languages': ['Hindi', 'English'],
-            'description': 'Mental health information, support, and resources'
-        },
-        {
-            'name': 'Vandrevala Foundation - General Support',
-            'number': '9999 77 6666',
-            'whatsapp': '+91 9999776666',
-            'available': '24/7',
-            'languages': ['Hindi', 'Marathi', 'English'],
-            'description': 'Mental health awareness and support services'
-        }
-    ],
-    
-    'depression': [
-        {
-            'name': 'iCall - Depression Support',
-            'number': '9152987821',
-            'whatsapp': '+91 9152987821',
-            'available': '24/7',
-            'languages': ['Hindi', 'English', 'Marathi'],
-            'description': 'Support for depression, low mood, hopelessness'
-        },
-        {
-            'name': 'Vandrevala Foundation - Depression Help',
-            'number': '9999 77 6666',
-            'whatsapp': '+91 9999776666',
-            'available': '24/7',
-            'languages': ['Hindi', 'Marathi', 'English'],
-            'description': 'Depression counseling and management'
-        },
-        {
-            'name': 'AASRA - Emotional Support',
-            'number': '9820466726',
-            'whatsapp': '+91 9820466726',
-            'available': '24/7',
-            'languages': ['Hindi', 'Marathi', 'English'],
-            'description': 'Depression and emotional distress support'
-        }
-    ],
-    
-    'anxiety': [
-        {
-            'name': 'iCall - Anxiety Support',
-            'number': '9152987821',
-            'whatsapp': '+91 9152987821',
-            'available': '24/7',
-            'languages': ['Hindi', 'English', 'Marathi'],
-            'description': 'Support for anxiety, panic attacks, stress'
-        },
-        {
-            'name': 'Vandrevala Foundation - Anxiety Management',
-            'number': '9999 77 6666',
-            'whatsapp': '+91 9999776666',
-            'available': '24/7',
-            'languages': ['Hindi', 'Marathi', 'English'],
-            'description': 'Anxiety disorders and panic attack support'
-        }
-    ],
-    
-    'domestic_violence': [
-        {
-            'name': 'National Domestic Violence Hotline (India)',
-            'number': '181',
-            'toll_free': 'Yes',
-            'available': '24/7',
-            'languages': ['Hindi', 'English', 'Regional'],
-            'description': 'Support for domestic violence victims (for women)'
-        },
-        {
-            'name': 'AASRA - Domestic Violence Support',
-            'number': '9820466726',
-            'whatsapp': '+91 9820466726',
-            'available': '24/7',
-            'languages': ['Hindi', 'Marathi', 'English'],
-            'description': 'Support for domestic violence survivors'
-        },
-        {
-            'name': 'Sneha - Mumbai Based NGO',
-            'number': '9922004948',
-            'email': 'contact@snehamumbai.org',
-            'available': '24/7',
-            'languages': ['Hindi', 'Marathi', 'English'],
-            'description': 'Support for violence survivors and counseling'
-        }
-    ],
-    
-    'substance_abuse': [
-        {
-            'name': 'All India Institute of Medical Sciences (AIIMS) - De-addiction',
-            'number': '011-26589169',
-            'email': 'aiimsdrugs@gmail.com',
-            'available': 'Mon-Fri 9am-5pm IST',
-            'languages': ['Hindi', 'English'],
-            'description': 'Professional de-addiction and substance abuse treatment'
-        },
-        {
-            'name': 'Narcotics Anonymous India',
-            'number': '7738-022022',
-            'whatsapp': '+91 7738022022',
-            'email': 'naindia@outlook.com',
-            'available': '24/7',
-            'languages': ['Hindi', 'English'],
-            'description': 'Support for substance abuse recovery'
-        },
-        {
-            'name': 'iCall - Substance Abuse Support',
-            'number': '9152987821',
-            'whatsapp': '+91 9152987821',
-            'available': '24/7',
-            'languages': ['Hindi', 'English', 'Marathi'],
-            'description': 'Support for substance abuse and addiction issues'
-        }
-    ],
-    
-    'emergency': [
-        {
-            'name': 'National Emergency Helpline',
-            'number': '100',
-            'toll_free': 'Yes',
-            'available': '24/7',
-            'languages': ['Hindi', 'English', 'Regional'],
-            'description': 'Police emergency response'
-        },
-        {
-            'name': 'Ambulance/Medical Emergency',
-            'number': '102',
-            'toll_free': 'Yes',
-            'available': '24/7',
-            'languages': ['Hindi', 'English', 'Regional'],
-            'description': 'Emergency medical services'
-        },
-        {
-            'name': 'Fire Emergency',
-            'number': '101',
-            'toll_free': 'Yes',
-            'available': '24/7',
-            'languages': ['Hindi', 'English'],
-            'description': 'Fire services and rescue'
-        }
-    ],
-    
-    'professional_help': [
-        {
-            'name': 'Psychology Foundation of India',
-            'number': '011-4150-2442',
-            'email': 'info@psychologyfoundation.org',
-            'website': 'www.psychologyfoundation.org',
-            'available': 'Mon-Fri 9am-6pm IST',
-            'languages': ['Hindi', 'English'],
-            'description': 'Connect with licensed therapists and psychologists'
-        },
-        {
-            'name': 'Fortis Mental Health Hospitals',
-            'number': '1800-102-5008',
-            'toll_free': 'Yes',
-            'available': '24/7',
-            'languages': ['Hindi', 'English'],
-            'description': 'Professional psychiatric and mental health care'
-        },
-        {
-            'name': 'Max Healthcare - Mental Health',
-            'number': '8860-018880',
-            'available': '24/7',
-            'languages': ['Hindi', 'English'],
-            'description': 'Professional mental health services across India'
-        },
-        {
-            'name': 'Apollo Hospitals - Psychiatry',
-            'number': '1860-500-1066',
-            'toll_free': 'Yes',
-            'available': '24/7',
-            'languages': ['Hindi', 'English'],
-            'description': 'Mental health and psychiatric care'
-        }
-    ],
-    
-    'grief_loss': [
-        {
-            'name': 'iCall - Grief Support',
-            'number': '9152987821',
-            'whatsapp': '+91 9152987821',
-            'available': '24/7',
-            'languages': ['Hindi', 'English', 'Marathi'],
-            'description': 'Support for grief, loss, and bereavement'
-        },
-        {
-            'name': 'AASRA - Loss and Grief Counseling',
-            'number': '9820466726',
-            'whatsapp': '+91 9820466726',
-            'available': '24/7',
-            'languages': ['Hindi', 'Marathi', 'English'],
-            'description': 'Counseling for grief and loss'
-        }
-    ],
-    
-    'family_issues': [
-        {
-            'name': 'iCall - Family Counseling',
-            'number': '9152987821',
-            'whatsapp': '+91 9152987821',
-            'available': '24/7',
-            'languages': ['Hindi', 'English', 'Marathi'],
-            'description': 'Support for family conflicts, relationship issues'
-        },
-        {
-            'name': 'Vandrevala Foundation - Family Support',
-            'number': '9999 77 6666',
-            'whatsapp': '+91 9999776666',
-            'available': '24/7',
-            'languages': ['Hindi', 'Marathi', 'English'],
-            'description': 'Family counseling and relationship support'
-        }
-    ]
-}
         
     def evaluate(self, text: str, emotion: str, confidence: float) -> SafetyAssessment:
         """
@@ -572,7 +593,7 @@ class SafetyTriageEngine:
             text_lower, self.critical_keywords
         )
         
-        # NEW: Check for harmful patterns (catches variations like "killing myself")
+        # Step 2: Check for harmful patterns (catches variations)
         pattern_critical, pattern_triggers = self._check_harmful_patterns(text_lower)
         critical_detected = critical_detected or pattern_critical
         critical_triggers.extend(pattern_triggers)
@@ -580,7 +601,7 @@ class SafetyTriageEngine:
         if critical_detected:
             return self._create_critical_assessment(critical_triggers)
         
-        # Step 2: Check for high-risk keywords
+        # Step 3: Check for high-risk keywords
         high_risk_detected, high_risk_triggers = self._check_keywords(
             text_lower, self.high_risk_keywords
         )
@@ -588,19 +609,19 @@ class SafetyTriageEngine:
         if high_risk_detected:
             return self._create_high_risk_assessment(high_risk_triggers)
         
-        # Step 3: Check for medium-risk keywords
+        # Step 4: Check for medium-risk keywords
         medium_risk_detected, medium_triggers = self._check_keywords(
             text_lower, self.medium_risk_keywords
         )
         
-        # Step 4: Assess emotional intensity
+        # Step 5: Assess emotional intensity
         intensity = self._assess_intensity(emotion, confidence, text_lower)
         
-        # Step 5: Combine assessments
+        # Step 6: Combine assessments
         if medium_risk_detected or intensity in [EmotionIntensity.SEVERE, EmotionIntensity.EXTREME]:
             return self._create_medium_risk_assessment(medium_triggers, intensity, emotion)
         
-        # Step 6: Low risk - normal conversation
+        # Step 7: Low risk - normal conversation
         return self._create_low_risk_assessment(intensity, emotion)
     
     def _check_keywords(self, text: str, keyword_dict: Dict[str, List[str]]) -> Tuple[bool, List[str]]:
@@ -617,42 +638,51 @@ class SafetyTriageEngine:
     
     def _check_harmful_patterns(self, text: str) -> Tuple[bool, List[str]]:
         """
-        Check for harmful patterns and variations using regex
-        Catches: "killing myself", "want to kill", gerunds, indirect language, etc.
-        This is the KEY FIX for detecting "feel like killing myself"
+        Check for harmful patterns using regex.
+        Catches variations and indirect language.
         """
         patterns = [
-            # Suicide patterns - catches all variations
-            r'(kill|end|harm|hurt|cut|burn|stab).*myself',      # kill/killing myself
-            r'(suicid|kill|die|death|end).*myself',             # suicide/killing/dying myself
-            r'want.*to.*(die|kill|end|harm)',                   # want to die/kill
-            r'think.*about.*(kill|die|end|harm)',               # thinking about killing
-            r'feel.*like.*(kill|die|end|harm)',                 # feel like killing - ⭐ YOUR CASE
-            r'plan.*to.*(die|kill|end)',                        # plan to die
-            r'ready.*to.*(die|kill)',                           # ready to die
-            r'better.*off.*(dead|gone)',                        # better off dead
-            r'(can\'t|cannot|no).*(go|live|continue)',          # can't continue living
-            r'(no|without).*(point|reason|hope)',               # no point in living
-            r'burden.*to.*everyone',                            # burden to everyone
-            r'(always|will).*(die|kill)',                       # will/always die
-            r'(only|just).*way.*out',                           # only way out
-            r'no.*reason.*live',                                # no reason to live
-            r'life.*not.*worth',                                # life not worth
-            r'everyone.*better.*without.*me',                   # everyone better without me
-            r'(going|about).*to.*(kill|die|end)',              # going to die
-            r'(final|last).*(message|goodbye)',                 # final/last message
-            r'not.*going.*survive',                             # not going to survive
-            r'decided.*to.*die',                                # decided to die
-            r'(cutting|cutting).*wrist',                        # cutting wrists
-            r'hurt.*myself.*badly',                             # hurt myself badly
+            # ⭐ SUICIDE CONTEXTUAL PATTERNS (catches "suicide is my only option")
+            r'suicide.*(only|option|way|out|answer|solution|choice|left)',
+            r'(only|option|way|out|answer|solution).*(suicide)',
+            r'(commit|committing|committed|attempting|attempt|plan|planning|consider|considering|thinking).*suicide',
+            r'suicide.*(tonight|tomorrow|soon|today|now)',
+            r'(will|going to|want to|need to|have to|must).*suicide',
+            r'no.*(other)?.*(option|choice|way|reason).*(left|out|to live)?',
+            
+            # Kill myself patterns
+            r'(kill|end|harm|hurt|cut|burn|stab).*myself',
+            r'(suicid|kill|die|death|end).*myself',
+            r'want.*to.*(die|kill|end|harm)',
+            r'think.*about.*(kill|die|end|harm)',
+            r'feel.*like.*(kill|die|end|harm)',
+            r'plan.*to.*(die|kill|end)',
+            r'ready.*to.*(die|kill)',
+            r'better.*off.*(dead|gone)',
+            r'(can\'t|cannot).*go.*on',
+            r'(no|without).*(point|reason|hope).*(in )?(living|life|going on)',
+            r'burden.*to.*(everyone|family|people|others)',
+            r'everyone.*(would be |is )better.*(without|off without).*me',
+            r'(always|will|going to).*(die|kill)',
+            r'(only|just).*way.*out',
+            r'no.*reason.*(to )?live',
+            r'life.*not.*worth',
+            r'(going|about).*to.*(kill|die|end)',
+            r'(final|last).*(message|goodbye|words)',
+            r'not.*going.*survive',
+            r'decided.*to.*die',
+            r'(cutting|cut).*wrist',
+            r'hurt.*myself.*badly',
+            
+            # "I will commit suicide" type
+            r'(i will|i\'m going to|i am going to|i\'ll).*suicide',
+            r'(i will|i\'m going to|i am going to|i\'ll).*(kill|end|harm).*myself',
         ]
         
         triggered = []
         for pattern in patterns:
             if re.search(pattern, text, re.IGNORECASE):
-                matches = re.findall(pattern, text, re.IGNORECASE)
-                if matches:
-                    triggered.append(f"Pattern: {pattern}")
+                triggered.append(f"pattern:{pattern}")
         
         return len(triggered) > 0, triggered
     
@@ -660,17 +690,14 @@ class SafetyTriageEngine:
         """
         Assess emotional intensity based on emotion type, confidence, and text patterns
         """
-        # Intensity indicators
         extreme_words = ['extremely', 'unbearably', 'completely', 'totally', 'absolutely', 'can\'t take']
         severe_words = ['very', 'really', 'so', 'too', 'incredibly', 'awful', 'terrible']
         
         has_extreme = any(word in text for word in extreme_words)
         has_severe = any(word in text for word in severe_words)
         
-        # High-intensity emotions
         intense_emotions = ['angry', 'fearful', 'sad']
         
-        # Determine intensity
         if has_extreme or (emotion in intense_emotions and confidence > 0.85):
             return EmotionIntensity.EXTREME
         elif has_severe or (emotion in intense_emotions and confidence > 0.70):
@@ -737,36 +764,52 @@ class SafetyTriageEngine:
         )
 
 
-# Example usage and testing
+# ==================== TEST ====================
 if __name__ == "__main__":
     engine = SafetyTriageEngine()
     
-    # Test cases that SHOULD be caught
     test_cases = [
-        ("feel like killing myself", "sad", 0.9),           # ⭐ YOUR CASE
-        ("killing myself", "sad", 0.85),                    # ⭐ Gerund form
-        ("want to kill myself", "angry", 0.8),              # ⭐ Explicit
-        ("thinking about killing myself", "sad", 0.9),      # ⭐ Thought
-        ("i will kill myself tonight", "sad", 0.95),        # ⭐ Plan + time
-        ("have a plan to kill myself", "fearful", 0.9),     # ⭐ Active plan
-        ("cutting myself", "angry", 0.7),                   # ⭐ Self-harm gerund
-        ("burning myself", "sad", 0.8),                     # ⭐ Self-harm
-        ("overdosing tonight", "sad", 0.95),                # ⭐ Overdose plan
-        ("better off dead", "sad", 0.85),                   # ⭐ Hopelessness
-        ("no reason to live", "sad", 0.9),                  # ⭐ Hopelessness
-        ("burden to everyone", "sad", 0.8),                 # ⭐ Worthlessness
+        # ⭐ THE FAILING CASE FROM YOUR SCREENSHOT
+        ("no suicide is my only option", "sad", 0.9),
+        ("suicide is my only option", "sad", 0.9),
+        ("i think suicide is the only way", "sad", 0.85),
+        
+        # Original test cases
+        ("feel like killing myself", "sad", 0.9),
+        ("killing myself", "sad", 0.85),
+        ("want to kill myself", "angry", 0.8),
+        ("thinking about killing myself", "sad", 0.9),
+        ("i will kill myself tonight", "sad", 0.95),
+        ("have a plan to kill myself", "fearful", 0.9),
+        ("cutting myself", "angry", 0.7),
+        ("burning myself", "sad", 0.8),
+        ("overdosing tonight", "sad", 0.95),
+        ("better off dead", "sad", 0.85),
+        ("no reason to live", "sad", 0.9),
+        ("burden to everyone", "sad", 0.8),
+        ("i will commit suicide", "sad", 0.95),
+        ("commit suicide", "sad", 0.9),
     ]
     
     print("=" * 80)
     print("SAFETY ENGINE TEST RESULTS")
     print("=" * 80)
     
+    passed = 0
+    failed = 0
+    
     for test_text, emotion, confidence in test_cases:
         result = engine.evaluate(test_text, emotion, confidence)
-        print(f"\nInput: '{test_text}'")
-        print(f"Emotion: {emotion} (Confidence: {confidence})")
-        print(f"Risk Level: {result.risk_level.value}")
-        print(f"Crisis Detected: {result.crisis_detected}")
-        print(f"Action: {result.recommended_action}")
-        print(f"Triggered Keywords: {result.triggered_keywords[:2] if result.triggered_keywords else 'None'}")
+        is_critical = result.risk_level in [RiskLevel.CRITICAL, RiskLevel.HIGH]
+        status = "✅ PASS" if is_critical else "❌ FAIL"
+        
+        if is_critical:
+            passed += 1
+        else:
+            failed += 1
+        
+        print(f"\n{status} | Input: '{test_text}'")
+        print(f"       Risk: {result.risk_level.value} | Crisis: {result.crisis_detected} | Action: {result.recommended_action}")
         print("-" * 80)
+    
+    print(f"\n📊 Results: {passed} passed, {failed} failed out of {len(test_cases)} tests")

@@ -1,6 +1,6 @@
-// audio-record.component.ts - UPDATED: Captures video emotion properly
+// audio-record.component.ts - UPDATED: Session-based chat history with proper session management
 
-import { Component, OnDestroy, ViewChild, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -13,13 +13,24 @@ interface Message {
   time: string;
 }
 
-interface ChatSession {
-  id?: number;
+interface ChatMessage {
+  id: number;
+  turn_number: number;
   user_message: string;
   bot_response: string;
   emotion: string;
   emotion_confidence: number;
   created_at: string;
+}
+
+interface ChatSession {
+  session_id: string;
+  message_count: number;
+  first_message: string;
+  last_emotion: string;
+  created_at: string;
+  updated_at: string;
+  all_messages: ChatMessage[];
 }
 
 @Component({
@@ -29,9 +40,8 @@ interface ChatSession {
   templateUrl: './audio-record.html',
   styleUrl: './audio-record.css'
 })
-export class AudioRecord implements OnDestroy, AfterViewChecked {
+export class AudioRecord implements OnInit, OnDestroy, AfterViewChecked {
   @ViewChild('messagesContainer') messagesContainer!: ElementRef;
-  @ViewChild('videoPreview') videoPreview!: ElementRef;
   
   currentUserId: number | null = null;
   
@@ -45,10 +55,13 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
   messageInput = '';
   isTyping = false;
   
-  // Chat history
+  // ⭐ Chat history - Sessions instead of individual messages
   showChatHistory = false;
-  chatHistory: ChatSession[] = [];
+  chatSessions: ChatSession[] = [];  // ⭐ CHANGED from chatHistory to chatSessions
   chatHistoryLoading = false;
+  
+  // ⭐ Session management
+  currentSessionId: string | null = null;
   
   // Audio recording
   isRecording = false;
@@ -65,7 +78,7 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
   currentAudioBlob: Blob | null = null;
   audioPreviewDuration = '0:00';
   
-  // ✅ VIDEO EMOTION TRACKING
+  // Video emotion tracking
   isVideoActive = false;
   videoStream: MediaStream | null = null;
   videoElement: HTMLVideoElement | null = null;
@@ -74,7 +87,7 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
   
   emotionStatus = '😊 Ready to chat';
   currentEmotion: string | null = null;
-  showDeleteToast:boolean = false;
+  showDeleteToast: boolean = false;
   
   private shouldScrollToBottom = false;
 
@@ -86,6 +99,12 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
     this.currentUserId = userIdStr ? parseInt(userIdStr, 10) : null;
   }
 
+  ngOnInit() {
+    // ⭐ Generate session ID
+    this.currentSessionId = this.generateSessionId();
+    console.log('✓ Session ID initialized:', this.currentSessionId);
+  }
+
   ngAfterViewChecked() {
     if (this.shouldScrollToBottom) {
       this.scrollToBottom();
@@ -95,6 +114,17 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
 
   ngOnDestroy() {
     this.cleanup();
+  }
+
+  // ⭐ Generate unique session ID
+  private generateSessionId(): string {
+    const stored = localStorage.getItem('currentSessionId');
+    if (stored) {
+      return stored;
+    }
+    const newSession = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('currentSessionId', newSession);
+    return newSession;
   }
 
   private cleanup() {
@@ -165,40 +195,37 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
       console.log('✓ Video emotion tracking started (SILENT)');
       
     } catch (error) {
-      console.error(' Camera error:', error);
+      console.error('Camera error:', error);
       alert('Please allow camera access');
       this.isVideoActive = false;
     }
   }
 
   stopVideoAnalysis() {
-  if (!this.isVideoActive) return;
+    if (!this.isVideoActive) return;
 
-  console.log('\n Stopping video emotion tracking...');
-  
-  if (this.faceAnalysisInterval) {
-    clearInterval(this.faceAnalysisInterval);
-    this.faceAnalysisInterval = null;
+    console.log('Stopping video emotion tracking...');
+    
+    if (this.faceAnalysisInterval) {
+      clearInterval(this.faceAnalysisInterval);
+      this.faceAnalysisInterval = null;
+    }
+    
+    if (this.videoStream) {
+      this.videoStream.getTracks().forEach(track => {
+        track.stop();
+      });
+      this.videoStream = null;
+    }
+    
+    this.videoElement = null;
+    this.isVideoActive = false;
+    this.currentFaceEmotion = null;
+    
+    this.cdr.markForCheck();
+    
+    console.log('✓ Video tracking stopped');
   }
-  
-  if (this.videoStream) {
-    this.videoStream.getTracks().forEach(track => {
-      track.stop();
-    });
-    this.videoStream = null;
-  }
-  
-  this.videoElement = null;
-  this.isVideoActive = false;
-  
-  //  Store last emotion before clearing (for reference)
-  const lastEmotion = this.currentFaceEmotion;
-  this.currentFaceEmotion = null;
-  
-  this.cdr.markForCheck();
-  
-  console.log(`✓ Video tracking stopped (last emotion: ${JSON.stringify(lastEmotion)})`);
-}
 
   toggleVideoAnalysis() {
     if (this.isVideoActive) {
@@ -240,7 +267,7 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
           emotion: res.emotion,
           confidence: res.confidence
         };
-        console.log(`📷 Face emotion: ${res.emotion} (${res.confidence.toFixed(2)})`);
+        console.log(`📷 Face emotion: ${res.emotion} (${(res.confidence * 100).toFixed(0)}%)`);
       },
       error: (err) => {
         console.debug('Frame analysis skipped');
@@ -248,7 +275,7 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
     });
   }
 
-  // ==================== CHAT HISTORY ====================
+  // ==================== CHAT HISTORY - SESSIONS ====================
   loadChatHistory() {
     if (!this.currentUserId) {
       alert('Please log in first');
@@ -261,54 +288,80 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
     this.http.get<any>(`http://127.0.0.1:8000/chat-history/${this.currentUserId}`)
       .subscribe({
         next: (res) => {
-          this.chatHistory = res.messages || [];
+          console.log('✓ Chat history received:', res);
+          // ⭐ Changed: Load sessions instead of individual messages
+          this.chatSessions = res.sessions || [];
+          console.log(`✓ Loaded ${this.chatSessions.length} sessions`);
           this.chatHistoryLoading = false;
           this.cdr.detectChanges();
         },
         error: (err) => {
+          console.error('❌ Error loading chat history:', err);
           this.chatHistoryLoading = false;
           alert('Failed to load chat history');
         }
       });
   }
 
-  loadPreviousChat(chat: ChatSession) {
+  // ⭐ Load entire session (not individual message)
+  loadPreviousChat(session: ChatSession) {
+    console.log('✓ Loading session:', session.session_id);
     this.showChatHistory = false;
     this.messages = [];
-    const timestamp = new Date(chat.created_at).toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
+    
+    // Reconstruct messages from session.all_messages
+    if (session.all_messages && Array.isArray(session.all_messages)) {
+      for (let msg of session.all_messages) {
+        const timestamp = new Date(msg.created_at).toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
 
-    this.messages.push({
-      text: chat.user_message,
-      isUser: true,
-      emotion: chat.emotion,
-      time: timestamp
-    });
+        // Add user message
+        this.messages.push({
+          text: msg.user_message,
+          isUser: true,
+          emotion: msg.emotion,
+          time: timestamp
+        });
 
-    this.messages.push({
-      text: chat.bot_response,
-      isUser: false,
-      time: timestamp
-    });
+        // Add bot response
+        this.messages.push({
+          text: msg.bot_response,
+          isUser: false,
+          time: timestamp
+        });
+      }
+    }
+
+    // ⭐ Set current session to this one
+    this.currentSessionId = session.session_id;
+    localStorage.setItem('currentSessionId', this.currentSessionId);
 
     this.shouldScrollToBottom = true;
     this.cdr.detectChanges();
+    
+    console.log(`✓ Loaded ${this.messages.length} messages from session`);
   }
 
   deleteAllChats() {
     if (!this.currentUserId) return;
-    const confirm = window.confirm('Delete all chat history?');
-    if (!confirm) return;
+    
+    if (!window.confirm('Delete ALL chat history?')) return;
 
-    this.http.delete<any>(`http://127.0.0.1:8000/delete-chat-session/${this.currentUserId}`)
+    this.http.delete<any>(`http://127.0.0.1:8000/delete-all-chats/${this.currentUserId}`)
       .subscribe({
         next: (res) => {
-          this.chatHistory = [];
-          alert('Chat history deleted');
+          console.log('✓ All chats deleted');
+          this.chatSessions = [];
+          this.showDeleteToast = true;
+          setTimeout(() => this.showDeleteToast = false, 3000);
+          this.newChat();
         },
-        error: (err) => alert('Failed to delete')
+        error: (err) => {
+          console.error('Error deleting chats:', err);
+          alert('Failed to delete chats');
+        }
       });
   }
 
@@ -316,29 +369,23 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
     this.showChatHistory = false;
   }
 
-  deleteIndividualChat(chatId: number | undefined, chatPreview: string) {
-    if (!chatId) {
-      alert('Error: Chat ID not found');
-      return;
-    }
+  // ⭐ Delete session (not individual message)
+  deleteIndividualChat(sessionId: string, firstMessage: string) {
+    if (!window.confirm('Delete this entire conversation?')) return;
 
-    const confirm = window.confirm(`Delete this chat?`);
-    if (!confirm) return;
-
-    this.http.delete<any>(`http://127.0.0.1:8000/delete-chat-message/${chatId}`)
+    this.http.delete<any>(`http://127.0.0.1:8000/delete-chat-session/${sessionId}`)
       .subscribe({
         next: (res) => {
-          this.chatHistory = this.chatHistory.filter(chat => chat.id !== chatId);
-          alert('Chat deleted');
-          this.newChat();
-          // let toastEl = document.getElementById('deleteToast');
-          // let toast = new bootstrap.Toast(toastEl);
-
-
-
-          // toast.show();
+          console.log('✓ Session deleted');
+          this.chatSessions = this.chatSessions.filter(s => s.session_id !== sessionId);
+          this.showDeleteToast = true;
+          this.cdr.detectChanges();
+          setTimeout(() => this.showDeleteToast = false, 3000);
         },
-        error: (err) => alert('Failed to delete'),
+        error: (err) => {
+          console.error('Error deleting session:', err);
+          alert('Failed to delete chat');
+        }
       });
   }
 
@@ -384,13 +431,14 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
           setTimeout(() => {
             this.isTyping = false;
             this.addMessage(botResponse, false);
-            this.saveChatToHistory(text, botResponse, emotion, res.confidence);
+            // ⭐ Save with session_id
+            this.saveChatToHistory(text, botResponse, emotion, res.emotion_confidence || 0);
           }, 1000);
         },
         error: (err) => {
           console.error('Error:', err);
           this.isTyping = false;
-          this.addMessage("Error. Please try again.", false);
+          this.addMessage('Error. Please try again.', false);
         }
       });
   }
@@ -491,118 +539,95 @@ export class AudioRecord implements OnDestroy, AfterViewChecked {
   }
 
   // ==================== SEND AUDIO WITH VIDEO EMOTION ====================
-sendAudio(audioBlob: Blob, capturedVideoEmotion?: any) {
-  console.log('\n\n╔════════════════════════════════════════════╗');
-  console.log('║    SENDING AUDIO - VIDEO STAYS ACTIVE      ║');
-  console.log('╚════════════════════════════════════════════╝');
-  
-  // ✅ Use captured emotion (don't rely on currentFaceEmotion which might change)
-  const videoEmotionToSend = capturedVideoEmotion;
-  
-  console.log(`\n📊 PARAMETERS:`);
-  console.log(`   audioBlob: ${audioBlob ? audioBlob.size + ' bytes' : 'null'}`);
-  console.log(`   capturedVideoEmotion: ${JSON.stringify(capturedVideoEmotion)}`);
-  console.log(`   videoEmotionToSend: ${JSON.stringify(videoEmotionToSend)}`);
-  console.log(`   isVideoActive: ${this.isVideoActive}`);
-  
-  this.addMessage('🎤 Voice message', true);
-  
-  const formData = new FormData();
-  formData.append('file', audioBlob, 'recording.webm');
-  
-  // ✅ Add captured video emotion
-  if (videoEmotionToSend && videoEmotionToSend.emotion) {
-    console.log(`\n✅ ADDING VIDEO EMOTION:`);
-    console.log(`   emotion: ${videoEmotionToSend.emotion}`);
-    console.log(`   confidence: ${videoEmotionToSend.confidence}`);
-    formData.append('video_emotion', JSON.stringify(videoEmotionToSend));
-  } else {
-    console.log(`\n⚠️ NO VIDEO EMOTION TO SEND`);
+  confirmSendAudio() {
+    if (this.currentAudioBlob) {
+      // ⭐ Capture emotion before anything
+      const capturedEmotion = this.currentFaceEmotion ? 
+        JSON.parse(JSON.stringify(this.currentFaceEmotion)) : null;
+      
+      const blobToSend = this.currentAudioBlob;
+      
+      this.clearPreviousRecording();
+      this.sendAudio(blobToSend, capturedEmotion);
+    }
   }
 
-  console.log(`\n📤 POST to /predict-emotion-with-video`);
-  
-  this.isTyping = true;
+  sendAudio(audioBlob: Blob, capturedVideoEmotion?: any) {
+    console.log('📤 Sending audio with video emotion:', capturedVideoEmotion);
+    
+    this.addMessage('🎤 Voice message', true);
+    
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'recording.webm');
+    
+    if (capturedVideoEmotion && capturedVideoEmotion.emotion) {
+      formData.append('video_emotion', JSON.stringify(capturedVideoEmotion));
+    }
+    
+    this.isTyping = true;
 
-  this.http.post<any>('http://127.0.0.1:8000/predict-emotion-with-video', formData)
-    .subscribe({
-      next: (res) => {
-        console.log('\n✅ RESPONSE RECEIVED:');
-        console.log(`   🎤 Audio: ${res.audio_emotion}`);
-        console.log(`   📝 Text: ${res.text_emotion}`);
-        console.log(`   📷 Video: ${res.video_emotion}`);
-        console.log(`   ✅ Fused: ${res.emotion}`);
-        
-        const emotion = res.emotion;
-        const transcription = res.transcription || '';
-        const botResponse = res.bot_response;
-        
-        const lastMessage = this.messages[this.messages.length - 1];
-        if (lastMessage.isUser) {
-          if (transcription) {
-            lastMessage.text = `🎤 "${transcription}"`;
+    this.http.post<any>('http://127.0.0.1:8000/predict-emotion-with-video', formData)
+      .subscribe({
+        next: (res) => {
+          console.log('✅ Audio response received');
+          console.log(`   🎤 Audio: ${res.audio_emotion}`);
+          console.log(`   📝 Text: ${res.text_emotion}`);
+          console.log(`   📷 Video: ${res.video_emotion}`);
+          console.log(`   ✅ Fused: ${res.emotion}`);
+          
+          const emotion = res.emotion;
+          const transcription = res.transcription || '';
+          const botResponse = res.bot_response;
+          
+          const lastMessage = this.messages[this.messages.length - 1];
+          if (lastMessage.isUser) {
+            if (transcription) {
+              lastMessage.text = `🎤 "${transcription}"`;
+            }
+            lastMessage.emotion = emotion;
           }
-          lastMessage.emotion = emotion;
-        }
-        
-        this.currentEmotion = emotion;
-        this.updateEmotionStatus(emotion);
-        
-        setTimeout(() => {
+          
+          this.currentEmotion = emotion;
+          this.updateEmotionStatus(emotion);
+          
+          setTimeout(() => {
+            this.isTyping = false;
+            this.addMessage(botResponse, false);
+            
+            const displayText = transcription || '🎤 Voice message';
+            // ⭐ Save with session_id
+            this.saveChatToHistory(displayText, botResponse, emotion, res.emotion_confidence || 0);
+            
+            this.stopVideoAnalysis();
+          }, 1000);
+        },
+        error: (err) => {
+          console.error('❌ ERROR:', err);
           this.isTyping = false;
-          this.addMessage(botResponse, false);
-          
-          const displayText = transcription || '🎤 Voice message';
-          this.saveChatToHistory(displayText, botResponse, emotion, res.confidence);
-          
-          // ✅ NOW stop video (after response received)
+          this.addMessage('Error analyzing. Please try again.', false);
           this.stopVideoAnalysis();
-        }, 1000);
-      },
-      error: (err) => {
-        console.error('❌ ERROR:', err);
-        this.isTyping = false;
-        this.addMessage('Error analyzing. Please try again.', false);
-        this.stopVideoAnalysis();
-      }
-    });
-}
+        }
+      });
+  }
 
   getEmotionClass(emotion: string): string {
-    return `emotion-${emotion.toLowerCase()}`;
+    return `emotion-${emotion?.toLowerCase() || 'neutral'}`;
   }
 
   cancelRecording() {
     this.clearPreviousRecording();
   }
 
-confirmSendAudio() {
-  if (this.currentAudioBlob) {
-    // ✅ CAPTURE emotion BEFORE ANYTHING
-    const capturedEmotion = this.currentFaceEmotion ? 
-      JSON.parse(JSON.stringify(this.currentFaceEmotion)) : null;
-    
-    console.log(`\n🎯 SEND AUDIO:`);
-    console.log(`   Captured emotion: ${JSON.stringify(capturedEmotion)}`);
-    console.log(`   Is video active: ${this.isVideoActive}`);
-    
-    const blobToSend = this.currentAudioBlob;
-    
-    // ✅ CRITICAL: DO NOT STOP VIDEO YET!
-    // Video will be stopped AFTER sending completes
-    
-    this.clearPreviousRecording();
-    this.sendAudio(blobToSend, capturedEmotion);
-    
-    // ✅ Video stays running until after response
-  }
-}
-  // ==================== SAVE CHAT ====================
+  // ==================== SAVE CHAT - WITH SESSION ====================
   private saveChatToHistory(userMessage: string, botResponse: string, emotion: string, confidence: number) {
-    if (!this.currentUserId) return;
+    if (!this.currentUserId || !this.currentSessionId) {
+      console.error('❌ Missing user_id or session_id');
+      return;
+    }
 
     const payload = {
       user_id: this.currentUserId,
+      session_id: this.currentSessionId,  // ⭐ Include session_id
       user_message: userMessage,
       bot_response: botResponse,
       emotion: emotion,
@@ -612,7 +637,7 @@ confirmSendAudio() {
     this.http.post<any>('http://127.0.0.1:8000/save-chat', payload)
       .subscribe({
         next: (res) => {
-          console.log('✓ Chat saved');
+          console.log('✓ Chat saved to session:', res.session_id);
         },
         error: (err) => {
           console.error('Error saving chat:', err);
@@ -622,9 +647,7 @@ confirmSendAudio() {
 
   // ==================== NEW CHAT ====================
   newChat() {
-    // const confirm = window.confirm('Start a new conversation?');
-    // if (!confirm) return;
-
+    // ⭐ Reset everything for new session
     this.messages = [
       {
         text: "Hello! I'm here to support you. How are you feeling today?",
@@ -646,7 +669,11 @@ confirmSendAudio() {
       this.recordingInterval = null;
     }
 
-    console.log('✓ New chat started');
+    // ⭐ Generate new session ID
+    this.currentSessionId = this.generateSessionId();
+    localStorage.setItem('currentSessionId', this.currentSessionId);
+
+    console.log('✓ New chat started with session:', this.currentSessionId);
     this.cdr.detectChanges();
   }
 }

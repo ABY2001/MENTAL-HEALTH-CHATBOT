@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from pydantic import BaseModel
+from typing import Optional
 import numpy as np
 import os
 import pickle
@@ -11,6 +12,7 @@ from tensorflow.keras.models import load_model
 import logging
 from dotenv import load_dotenv
 import time
+import uuid
 
 load_dotenv()
 
@@ -83,7 +85,8 @@ try:
 except Exception as e:
     print(f"⚠️ CNN Model NOT loaded: {e}")
 
-# Data Models
+# ==================== DATA MODELS ====================
+
 class LoginRequest(BaseModel):
     email: str
     password: str
@@ -94,15 +97,12 @@ class TextRequest(BaseModel):
 class SaveChatRequest(BaseModel):
     """Request to save a chat message"""
     user_id: int
+    session_id: Optional[str] = None  # ⭐ NEW
+    turn_number: Optional[int] = None  # ⭐ NEW
     user_message: str
     bot_response: str
     emotion: str
     emotion_confidence: float = 0.0
-
-class AudioWithVideoRequest(BaseModel):
-    """Audio + video emotion request"""
-    audio_base64: str = None
-    video_emotion: dict = None
 
 class ChatHistoryResponse(BaseModel):
     id: int
@@ -115,15 +115,8 @@ class ChatHistoryResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class ChatSessionResponse(BaseModel):
-    user_id: int
-    message_count: int
-    last_message: str
-    last_emotion: str
-    last_updated: datetime
-    messages: list[ChatHistoryResponse]
+# ==================== DATABASE ====================
 
-# Database
 def get_db():
     db = SessionLocal()
     try: 
@@ -354,16 +347,18 @@ def predict_emotion_text_with_video(request: dict):
             video_confidence = video_emotion_data.get('confidence', 0.0)
             print(f"   📷 Video emotion: {video_emotion} ({video_confidence:.2f})")
         
-        # 3. Emotion Fusion
+        # 3. ⭐ IMPROVED EMOTION FUSION WITH CORRECT WEIGHTS
+        # Text: 60%, Video: 40%
         if video_emotion:
-            if text_confidence > 0.6:
-                fused_emotion = text_emotion
-                fused_confidence = text_confidence * 0.6 + video_confidence * 0.4
-            else:
-                fused_emotion = video_emotion
-                fused_confidence = video_confidence * 0.6 + text_confidence * 0.4
+            weighted_emotions = {}
+            weighted_emotions[text_emotion] = text_confidence * 0.60
+            weighted_emotions[video_emotion] = weighted_emotions.get(video_emotion, 0) + (video_confidence * 0.40)
+            
+            fused_emotion = max(weighted_emotions.items(), key=lambda x: x[1])[0]
+            fused_confidence = weighted_emotions[fused_emotion]
             
             print(f"   ✅ Fused emotion: {fused_emotion} ({fused_confidence:.2f})")
+            print(f"   💡 WEIGHTING: Text 60% | Video 40%")
         else:
             fused_emotion = text_emotion
             fused_confidence = text_confidence
@@ -401,7 +396,13 @@ def predict_emotion_with_video(
     file: UploadFile = File(...),
     video_emotion: str = Form(None)
 ):
-    """Audio + Video + Text emotion fusion"""
+    """Audio + Video + Text emotion fusion with CORRECT WEIGHTS
+    
+    ⭐ WEIGHTS:
+    - Text: 60% (Faculty verifiable, highest priority)
+    - Audio: 30% (CNN emotion from voice)
+    - Video: 10% (FER emotion if available)
+    """
     
     if model is None:
         raise HTTPException(status_code=500, detail="CNN model not loaded")
@@ -482,40 +483,42 @@ def predict_emotion_with_video(
         else:
             print(f"⚠️ No video emotion provided")
         
-        # 6. EMOTION FUSION
-        print("\n" + "="*70)
-        print("🔄 EMOTION FUSION")
-        print("="*70)
+
         
-        emotions_to_fuse = [audio_confidence]
-        emotion_names = [audio_emotion]
+        # WEIGHTING STRATEGY:
+        # Text:  60% (Faculty checks text content - HIGHEST PRIORITY)
+        # Audio: 30% (CNN emotion from voice - secondary)
+        # Video: 10% (FER emotion - lowest priority, if available)
         
+        num_modalities = 1
+        weighted_emotions = {}
+        
+        # Audio: 30% weight
+        weighted_emotions[audio_emotion] = weighted_emotions.get(audio_emotion, 0) + (audio_confidence * 0.30)
+        # print(f"\nModalities combined (WEIGHTED):")
+        # print(f"   🎤 Audio:   {audio_emotion:10s} ({audio_confidence:.2%}) × 0.30 = {audio_confidence * 0.30:.2%}")
+        
+        # Text: 60% weight (HIGHEST - Faculty verifiable!)
         if text_emotion:
-            emotions_to_fuse.append(text_confidence)
-            emotion_names.append(text_emotion)
+            weighted_emotions[text_emotion] = weighted_emotions.get(text_emotion, 0) + (text_confidence * 0.60)
+            print(f"   📝 Text:    {text_emotion:10s} ({text_confidence:.2%}) × 0.60 = {text_confidence * 0.60:.2%}")
+            num_modalities += 1
         
+        # Video: 10% weight (if available)
         if video_emotion_name:
-            emotions_to_fuse.append(video_emotion_confidence)
-            emotion_names.append(video_emotion_name)
+            weighted_emotions[video_emotion_name] = weighted_emotions.get(video_emotion_name, 0) + (video_emotion_confidence * 0.10)
+            print(f"   📷 Video:   {video_emotion_name:10s} ({video_emotion_confidence:.2%}) × 0.10 = {video_emotion_confidence * 0.10:.2%}")
+            num_modalities += 1
         
-        # Fuse emotions
-        if len(emotions_to_fuse) > 1:
-            fused_confidence = np.mean(emotions_to_fuse)
-            from collections import Counter
-            emotion_counter = Counter(emotion_names)
-            fused_emotion = emotion_counter.most_common(1)[0][0]
-            num_modalities = len(emotion_names)
-            
-            print(f"\nModalities combined:")
-            print(f"   🎤 Audio:   {audio_emotion:10s} ({audio_confidence:.2%})")
-            if text_emotion:
-                print(f"   📝 Text:    {text_emotion:10s} ({text_confidence:.2%})")
-            if video_emotion_name:
-                print(f"   📷 Video:   {video_emotion_name:10s} ({video_emotion_confidence:.2%})")
+        # Get fused emotion (highest weighted score)
+        if weighted_emotions:
+            fused_emotion = max(weighted_emotions.items(), key=lambda x: x[1])[0]
+            fused_confidence = weighted_emotions[fused_emotion]
             
             print(f"\n✅ FUSED RESULT ({num_modalities} modalities):")
             print(f"   Emotion: {fused_emotion}")
             print(f"   Confidence: {fused_confidence:.2%}")
+      
         else:
             fused_emotion = audio_emotion
             fused_confidence = audio_confidence
@@ -592,14 +595,29 @@ def get_emotions():
 
 @app.post("/save-chat")
 def save_chat(request: SaveChatRequest, db: Session = Depends(get_db)):
-    """Save a chat message with emotion to database"""
+    """Save a chat message with emotion to database - Groups by session_id"""
     try:
         user = db.query(User).filter(User.id == request.user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
+        # ⭐ Generate or use provided session_id
+        session_id = request.session_id or str(uuid.uuid4())
+        
+        # ⭐ Calculate turn number if not provided
+        if request.turn_number is None:
+            turn_count = db.query(ChatMessage).filter(
+                ChatMessage.user_id == request.user_id,
+                ChatMessage.session_id == session_id
+            ).count()
+            turn_number = turn_count + 1
+        else:
+            turn_number = request.turn_number
+        
         chat_message = ChatMessage(
             user_id=request.user_id,
+            session_id=session_id,
+            turn_number=turn_number,
             user_message=request.user_message,
             bot_response=request.bot_response,
             emotion=request.emotion,
@@ -610,11 +628,13 @@ def save_chat(request: SaveChatRequest, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(chat_message)
         
-        print(f"✓ Chat saved: User {request.user_id} | Emotion: {request.emotion}")
+        print(f"✓ Chat saved: User {request.user_id} | Session {session_id} | Turn {turn_number}")
         
         return {
             "status": "saved",
             "chat_id": chat_message.id,
+            "session_id": session_id,
+            "turn_number": turn_number,
             "timestamp": chat_message.created_at
         }
     
@@ -626,40 +646,71 @@ def save_chat(request: SaveChatRequest, db: Session = Depends(get_db)):
 
 @app.get("/chat-history/{user_id}")
 def get_chat_history(user_id: int, db: Session = Depends(get_db)):
-    """Get all chat history for a user"""
+    """Get chat sessions (grouped by session_id) for a user"""
     try:
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
-        chat_messages = db.query(ChatMessage).filter(
+        # ⭐ Get all messages for this user
+        all_messages = db.query(ChatMessage).filter(
             ChatMessage.user_id == user_id
         ).order_by(desc(ChatMessage.created_at)).all()
         
-        if not chat_messages:
+        if not all_messages:
             return {
                 "user_id": user_id,
-                "message_count": 0,
-                "last_emotion": None,
-                "last_updated": None,
-                "messages": []
+                "total_sessions": 0,
+                "total_messages": 0,
+                "sessions": []
             }
         
-        messages_response = [
-            ChatHistoryResponse.model_validate(msg) for msg in chat_messages
-        ]
+        # ⭐ Group messages by session_id
+        from collections import defaultdict
+        sessions_dict = defaultdict(list)
         
-        last_emotion = chat_messages[0].emotion if chat_messages else None
-        last_updated = chat_messages[0].created_at if chat_messages else None
+        for msg in all_messages:
+            sessions_dict[msg.session_id].append(msg)
         
-        print(f"✓ Retrieved chat history for User {user_id}: {len(chat_messages)} messages")
+        # ⭐ Create session summaries
+        sessions = []
+        for session_id, messages in sessions_dict.items():
+            messages_sorted = sorted(messages, key=lambda x: x.turn_number)
+            first_msg = messages_sorted[0]
+            last_msg = messages_sorted[-1]
+            
+            session_summary = {
+                "session_id": session_id,
+                "message_count": len(messages),
+                "first_message": first_msg.user_message[:60] + ("..." if len(first_msg.user_message) > 60 else ""),
+                "last_emotion": last_msg.emotion,
+                "created_at": first_msg.created_at,
+                "updated_at": last_msg.created_at,
+                "all_messages": [
+                    {
+                        "id": msg.id,
+                        "turn_number": msg.turn_number,
+                        "user_message": msg.user_message,
+                        "bot_response": msg.bot_response,
+                        "emotion": msg.emotion,
+                        "emotion_confidence": msg.emotion_confidence,
+                        "created_at": msg.created_at
+                    }
+                    for msg in messages_sorted
+                ]
+            }
+            sessions.append(session_summary)
+        
+        # ⭐ Sort sessions by most recent first
+        sessions = sorted(sessions, key=lambda x: x['updated_at'], reverse=True)
+        
+        print(f"✓ Retrieved chat history for User {user_id}: {len(sessions)} sessions, {len(all_messages)} total messages")
         
         return {
             "user_id": user_id,
-            "message_count": len(chat_messages),
-            "last_emotion": last_emotion,
-            "last_updated": last_updated,
-            "messages": messages_response
+            "total_sessions": len(sessions),
+            "total_messages": len(all_messages),
+            "sessions": sessions
         }
     
     except HTTPException:
@@ -669,9 +720,43 @@ def get_chat_history(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/delete-chat-session/{user_id}")
-def delete_chat_session(user_id: int, db: Session = Depends(get_db)):
-    """Delete ALL chat messages for a user"""
+@app.delete("/delete-chat-session/{session_id}")
+def delete_chat_session(session_id: str, db: Session = Depends(get_db)):
+    """Delete ALL messages in a chat session"""
+    try:
+        messages = db.query(ChatMessage).filter(
+            ChatMessage.session_id == session_id
+        ).all()
+        
+        if not messages:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        user_id = messages[0].user_id
+        message_count = len(messages)
+        
+        db.query(ChatMessage).filter(
+            ChatMessage.session_id == session_id
+        ).delete()
+        
+        db.commit()
+        
+        print(f"✓ Deleted session {session_id}: {message_count} messages")
+        
+        return {
+            "status": "deleted",
+            "session_id": session_id,
+            "messages_deleted": message_count
+        }
+    
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error deleting session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/delete-all-chats/{user_id}")
+def delete_all_chats(user_id: int, db: Session = Depends(get_db)):
+    """Delete ALL chat sessions for a user"""
     try:
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
@@ -687,45 +772,17 @@ def delete_chat_session(user_id: int, db: Session = Depends(get_db)):
         
         db.commit()
         
-        print(f"✓ Deleted chat session for User {user_id}: {message_count} messages removed")
+        print(f"✓ Deleted all chats for User {user_id}: {message_count} messages removed")
         
         return {
             "status": "deleted",
             "user_id": user_id,
-            "messages_deleted": message_count
+            "total_messages_deleted": message_count
         }
     
     except Exception as e:
         db.rollback()
-        print(f"❌ Error deleting chat session: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.delete("/delete-chat-message/{message_id}")
-def delete_chat_message(message_id: int, db: Session = Depends(get_db)):
-    """Delete a single chat message by ID"""
-    try:
-        chat_message = db.query(ChatMessage).filter(
-            ChatMessage.id == message_id
-        ).first()
-        
-        if not chat_message:
-            raise HTTPException(status_code=404, detail="Chat message not found")
-        
-        user_id = chat_message.user_id
-        db.delete(chat_message)
-        db.commit()
-        
-        print(f"✓ Deleted message {message_id} for User {user_id}")
-        
-        return {
-            "status": "deleted",
-            "message_id": message_id
-        }
-    
-    except Exception as e:
-        db.rollback()
-        print(f"❌ Error deleting message: {e}")
+        print(f"❌ Error deleting all chats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -740,10 +797,16 @@ def get_chat_stats(user_id: int, db: Session = Depends(get_db)):
         if not messages:
             return {
                 "user_id": user_id,
+                "total_sessions": 0,
                 "total_messages": 0,
                 "avg_confidence": 0.0,
                 "emotion_distribution": {}
             }
+        
+        from collections import defaultdict
+        sessions = defaultdict(list)
+        for msg in messages:
+            sessions[msg.session_id].append(msg)
         
         emotion_counts = {}
         total_confidence = 0
@@ -759,16 +822,17 @@ def get_chat_stats(user_id: int, db: Session = Depends(get_db)):
         
         return {
             "user_id": user_id,
+            "total_sessions": len(sessions),
             "total_messages": len(messages),
             "avg_confidence": round(avg_confidence, 3),
             "emotion_distribution": emotion_counts
         }
     
     except Exception as e:
-        print(f" Error getting chat stats: {e}")
+        print(f"❌ Error getting chat stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
+# ==================== RUN ====================
 if __name__ == "__main__":
     import uvicorn
     print("\n" + "="*70)
@@ -777,7 +841,8 @@ if __name__ == "__main__":
     print("✓ Text: Groq LLM Analysis")
     print("✓ Audio: CNN + Librosa Model")
     print(f"✓ Video: FER Model ({' ✓ LOADED' if FER_AVAILABLE else ' ⚠️ NOT AVAILABLE'})")
-    print("✓ Multimodal Fusion: Text + Audio + (Video if available)")
+    print("✓ Multimodal Fusion: Text + Audio + Video")
+    print("✓ Chat Sessions: Messages grouped by session_id")
     print("="*70 + "\n")
     
     uvicorn.run(app, host="127.0.0.1", port=8000, reload=False, access_log=False, log_level="warning")

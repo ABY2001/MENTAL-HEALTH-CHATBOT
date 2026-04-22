@@ -137,7 +137,7 @@
 
 /* USER MESSAGE */
 .message.user .message-bubble {
-  background: linear-gradient(135deg, #667eea, #5c6bc0);
+  background: linear-gradient(175deg, #020024, #090979);
   color: white;
   border-bottom-right-radius: 6px;
   box-shadow: 0 4px 16px rgba(92,107,192,0.35);
